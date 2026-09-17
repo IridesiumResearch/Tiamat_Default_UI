@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: Iridesium
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# A native check that runs the mod through the engine's real script VM, with
+# a fake inventory and dialog host around it, plus small fixture mods that use
+# its exports the way Life or World would. Run from the repository root, with
+# the engine checkout beside it as ../Tiamot:
+#
+#     cargo run --manifest-path tests/native/Cargo.toml
+#
+# It also writes the trees and HUD commands it built to
+# tests/native/target/preview.json, which tools/render_preview.py draws.
+[package]
+name = "ui-native-check"
+version = "0.4.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+tiamot-core = { path = "../../../Tiamot/crates/core" }
+serde_json = "1"
