@@ -277,6 +277,13 @@ fn slots(tree: &Tree) -> Vec<u16> {
         .collect()
 }
 
+fn slots_in(tree: &Tree, view: &str) -> usize {
+    tree.nodes
+        .iter()
+        .filter(|n| matches!(&n.widget, Widget::ItemSlot { view: v, .. } if v == view))
+        .count()
+}
+
 fn has_name(tree: &Tree, name: &str) -> bool {
     tree.nodes.iter().any(|n| n.name == name)
 }
@@ -327,24 +334,28 @@ fn layout_and_paging() {
     r.event(ALICE, Wire::Closed);
     r.key(ALICE);
     assert!(slots(&r.last()).contains(&10));
-    // The whole screen is framed, scrolls, and uses the display font.
+    // The slots and buttons wear the iron frame. The ornate frame around the
+    // whole screen is the theme's, painted by the engine around the sheet, so
+    // it must NOT also be in the tree: that was the frame inside a frame.
     let panel = hash_bytes(&std::fs::read(mod_dir().join("textures/ornate-panel.png")).unwrap());
     let slot = hash_bytes(&std::fs::read(mod_dir().join("textures/iron-slot.png")).unwrap());
     let tree = r.last();
     let frames: Vec<_> = tree.nodes.iter().filter_map(|n| n.style.nine_slice).collect();
+    assert!(!frames.contains(&panel), "the tree draws the ornate frame the theme already puts around the sheet");
     assert!(
-        frames.iter().all(|h| *h == panel || *h == slot),
-        "a frame in the tree is neither ornate-panel.png ({}) nor iron-slot.png ({})",
-        hex(&panel),
+        !frames.is_empty() && frames.iter().all(|h| *h == slot),
+        "a frame in the tree is not iron-slot.png ({})",
         hex(&slot)
     );
-    assert!(frames.contains(&panel) && frames.contains(&slot));
     for n in tree.nodes.iter().filter(|n| n.style.nine_slice.is_some()) {
         assert_eq!(n.style.background.map_or(0, |b| b[3]), 0, "a framed widget with a fill hides its frame");
     }
-    assert!(tree.nodes.iter().any(|n| matches!(n.widget, Widget::Scroll)));
+    assert!(
+        !tree.nodes.iter().any(|n| matches!(n.widget, Widget::Scroll)),
+        "the screen scrolls; it should fit its sheet"
+    );
     assert!(tree.nodes.iter().any(|n| n.style.font.as_deref() == Some("tiamot_default_ui:display")));
-    println!("ok  layout: quick access, two pack pages, off-hand, frames, scroll, font");
+    println!("ok  layout: quick access, two pack pages, off-hand, iron frames only, font, no scroll");
 }
 
 fn empty_crafter() {
@@ -481,6 +492,7 @@ local ui = game.exports("tiamot_default_ui")
 assert(ui and ui.version == 1, "inventory exports missing")
 assert(not pcall(function() ui.version = 2 end), "exports were writable")
 assert(ui.tabs.items == "tiamot_default_ui:items")
+assert(ui.sizes.cell > 0 and ui.widgets.row and ui.widgets.space and ui.widgets.hint, "layout exports missing")
 
 local ok, why = ui.add_tab{ id = "unqualified", label = "X", build = function() end }
 assert(ok == nil and type(why) == "string", "a bad tab id was accepted")
@@ -679,6 +691,231 @@ fn disabled_callbacks() {
     println!("ok  a disabled mod's callbacks stop, and its tab is dropped");
 }
 
+// --- Fitting the sheet --------------------------------------------------------------
+//
+// The screen must fit the engine's sheet at every window size without
+// scrolling. The sheet is the client's `panel::size` — three quarters of the
+// window's height at 4:3 — less its bar and margins, and the tree is laid
+// into exactly that room by the engine's own `layout`. So this lays each
+// screen out at real window sizes with the real layout and checks the result:
+// nothing outside its parent, no slot too small to use or badly out of square,
+// and no text wider than the box it is drawn in.
+
+/// Leaf sizes as the client measures them (`client::dialog`), with text
+/// estimated from the font. The widths per character are the WORST measured
+/// over this mod's own strings with Pillow: Cinzel Decorative Bold reaches
+/// 0.83 em (its lowercase is small capitals), a monospace face 0.63. The
+/// client's own face is proportional and narrower, so a pass here is a pass
+/// in the window.
+struct Ruler;
+
+fn text_size(text: &str, style: &ui::Style) -> (i32, i32) {
+    let size = f32::from(style.text_size.unwrap_or(14));
+    let per = if style.font.is_some() { 0.84 } else { 0.63 };
+    let chars = text.chars().count() as f32;
+    ((chars * size * per).ceil() as i32, (size * 1.3).ceil() as i32)
+}
+
+impl ui::Measure for Ruler {
+    fn natural(&self, widget: &Widget, style: &ui::Style) -> (i32, i32) {
+        match widget {
+            Widget::Label { text } => text_size(text, style),
+            Widget::Button { text } => {
+                let (w, h) = text_size(text, style);
+                (w + 16, h + 8)
+            }
+            Widget::Checkbox { text, .. } => {
+                let (w, h) = text_size(text, style);
+                (w + 24, h.max(16))
+            }
+            Widget::Dropdown { options, selected } => {
+                let text = options.get(usize::from(*selected)).map_or("", String::as_str);
+                let (w, h) = text_size(text, style);
+                (w + 32, h + 8)
+            }
+            Widget::ItemSlot { .. } => (36, 36),
+            Widget::ItemGrid { columns, count, .. } => {
+                let (columns, count) = (i32::from(*columns).max(1), i32::from(*count));
+                (columns * 36, ((count + columns - 1) / columns).max(1) * 36)
+            }
+            Widget::ShapeEditor { .. } => (192, 192),
+            Widget::Image { .. } => (64, 64),
+            Widget::Progress { .. } => (120, 12),
+            Widget::Slider { .. } => (160, 20),
+            Widget::TextInput { .. } => (160, 26),
+            _ => (0, 0),
+        }
+    }
+}
+
+/// The room a screen gets in a window `w` by `h` points: the client's
+/// `panel::size_clear_of` with this mod's HUD reserve (converted from the
+/// HUD's 1080-tall canvas as `panel::reserve_points` does), less the sheet's
+/// margins and its bar with Close on it.
+fn room(w: f32, h: f32) -> (i32, i32) {
+    let reserve = (HUD_RESERVE / 1080.0 * h).clamp(0.0, h / 2.0);
+    let height = (h * 0.75).min(h - reserve).max(120.0);
+    let width = (height * 4.0 / 3.0).min(w * 0.9).max(160.0);
+    let height = (width * 3.0 / 4.0).min(height).max(120.0);
+    ((width - 16.0) as i32, (height - 48.0) as i32)
+}
+
+/// config.lua's `hud_reserve`, checked against what the mod registers in
+/// `the_look_is_declared`.
+const HUD_RESERVE: f32 = 138.0;
+
+const WINDOWS: [(f32, f32); 5] = [(800.0, 600.0), (1024.0, 768.0), (1280.0, 720.0), (1366.0, 768.0), (1920.0, 1080.0)];
+
+/// Every problem with `tree` laid into `area`, as sentences.
+fn misfits(tree: &Tree, area: (i32, i32)) -> Vec<String> {
+    let laid = ui::layout(tree, ui::Rect::new(0, 0, area.0, area.1), &Ruler);
+    let mut found = Vec::new();
+    walk_fit(tree, 0, &laid, None, &mut found);
+    found
+}
+
+fn walk_fit(tree: &Tree, at: usize, laid: &ui::Laid, parent: Option<ui::Rect>, found: &mut Vec<String>) {
+    let node = &tree.nodes[at];
+    let r = laid.rect;
+    let what = || match &node.widget {
+        Widget::Label { text } | Widget::Button { text } => format!("{text:?}"),
+        other => format!("{other:?}").split_whitespace().next().unwrap_or("?").to_owned(),
+    };
+    if let Some(p) = parent
+        && (r.x < p.x || r.y < p.y || r.x + r.w > p.x + p.w || r.y + r.h > p.y + p.h)
+    {
+        found.push(format!("{} spills out of its parent: {r:?} in {p:?}", what()));
+    }
+    match &node.widget {
+        Widget::Scroll => found.push("a scroll box".into()),
+        Widget::ItemSlot { index, .. } => {
+            if r.w.min(r.h) < 36 {
+                found.push(format!("slot {} is {}x{}, too small to use", index + 1, r.w, r.h));
+            }
+            let ratio = r.w as f32 / r.h.max(1) as f32;
+            if !(0.8..=1.25).contains(&ratio) {
+                found.push(format!("slot {} is {}x{}, out of square", index + 1, r.w, r.h));
+            }
+        }
+        Widget::Label { text } | Widget::Button { text } if !text.is_empty() => {
+            let (w, h) = text_size(text, &node.style);
+            let pad = if matches!(node.widget, Widget::Button { .. }) { 8 } else { 0 };
+            if w + pad > r.w {
+                found.push(format!("{} needs {} across and has {}", what(), w + pad, r.w));
+            }
+            if h > r.h + 4 {
+                found.push(format!("{} needs {} down and has {}", what(), h, r.h));
+            }
+        }
+        Widget::Dropdown { options, selected } => {
+            let text = options.get(usize::from(*selected)).map_or("", String::as_str);
+            let (w, _) = text_size(text, &node.style);
+            if w + 32 > r.w {
+                found.push(format!("dropdown {text:?} needs {} across and has {}", w + 32, r.w));
+            }
+        }
+        _ => {}
+    }
+    let first = node.children.first as usize;
+    for (n, child) in laid.children.iter().enumerate() {
+        walk_fit(tree, first + n, child, Some(r), found);
+    }
+}
+
+/// The README's wardrobe example, nearly word for word: what a mod following
+/// the "Your tab must fit" advice builds.
+const WARDROBE: &str = r#"
+game.register_view{ id = "worn", slots = 4 }
+local ui = game.exports("tiamot_default_ui")
+local w, sizes = ui.widgets, ui.sizes
+assert(ui.add_tab{
+    id = "wardrobe:wardrobe",
+    label = "Wardrobe",
+    build = function(player)
+        local worn = {}
+        for index = 1, 4 do
+            worn[index] = w.slot("wardrobe:worn", index)
+        end
+        worn[5] = w.space(1)
+        return w.box("column", {
+            w.section("WORN", { w.row(worn, sizes.cell, sizes.cell_gap) }),
+            w.hint("Clothing keeps you warm, or cool."),
+            w.space(1),
+            w.row({ w.wide_button("strip", "Take everything off") }, sizes.row),
+        })
+    end,
+})
+assert(ui.add_button{ id = "wardrobe:sleep", label = "Sleep", on_press = function() end })
+"#;
+
+/// The `[theme]` the engine's own screens wear, read and validated the way the
+/// engine reads it, and the HUD reserve that keeps sheets off the hotbar.
+fn the_look_is_declared() {
+    let dir = mod_dir();
+    let manifest = tiamot_core::modload::ModManifest::load(&dir).expect("mod.toml loads and validates");
+    let theme = manifest.theme.expect("mod.toml declares a [theme]");
+    for (what, file) in [("font", &theme.font), ("sheet", &theme.sheet), ("button", &theme.button)] {
+        let file = file.as_deref().unwrap_or_else(|| panic!("the theme names no {what}"));
+        assert!(dir.join(file).is_file(), "the theme's {what} is not a file: {file}");
+    }
+    assert_eq!(theme.sheet.as_deref(), Some("textures/ornate-panel.png"));
+    let c = &theme.colours;
+    for (what, colour) in [
+        ("text", &c.text),
+        ("heading", &c.heading),
+        ("background", &c.background),
+        ("button", &c.button),
+        ("accent", &c.accent),
+    ] {
+        assert!(colour.is_some(), "the theme leaves {what} to the client");
+    }
+
+    let r = Rig::new(&[]);
+    let scripts = r.vm.registered_hud_scripts();
+    let ours = scripts.iter().find(|s| s.mod_id == MOD).expect("the hotbar script is registered");
+    assert_eq!(f32::from(ours.reserve), HUD_RESERVE, "hud_reserve in config.lua and the harness disagree");
+    println!("ok  the theme validates and names every part, and the hotbar reserves {} px", ours.reserve);
+}
+
+fn screens_fit_without_scrolling() {
+    let mut trees: Vec<(&str, Tree)> = Vec::new();
+    let mut r = Rig::new(&[("addon", ADDON), ("wardrobe", WARDROBE)]);
+    r.stock(ALICE, vec![Stack::new(r.granite, 124).unwrap(), Stack::new(r.marble, 270).unwrap()]);
+    r.key(ALICE);
+    trees.push(("inventory", r.last()));
+    let wardrobe = button(&r.last(), "Wardrobe").expect("the README's wardrobe tab");
+    r.press(ALICE, &wardrobe);
+    assert!(
+        slots_in(&r.last(), "wardrobe:worn") == 4,
+        "the README's wardrobe tab should show four worn slots"
+    );
+    trees.push(("the README's wardrobe tab", r.last()));
+    r.press(ALICE, "tab/items");
+    r.press(ALICE, "next");
+    trees.push(("inventory, page two", r.last()));
+    r.press(ALICE, "tab/shapes");
+    r.press(ALICE, "stairs");
+    trees.push(("crafter", r.last()));
+    let bag = button(&r.last(), "Bag").unwrap();
+    r.press(ALICE, &bag);
+    trees.push(("another mod's tab", r.last()));
+    r.stock(ALICE, vec![]);
+    r.press(ALICE, "tab/shapes");
+    trees.push(("crafter, no material", r.last()));
+
+    let mut failed = Vec::new();
+    for (w, h) in WINDOWS {
+        let area = room(w, h);
+        for (name, tree) in &trees {
+            for problem in misfits(tree, area) {
+                failed.push(format!("{w}x{h} ({}x{} room), {name}: {problem}", area.0, area.1));
+            }
+        }
+    }
+    assert!(failed.is_empty(), "screens that do not fit:\n  {}", failed.join("\n  "));
+    println!("ok  every screen fits its sheet without scrolling at 800x600 to 1920x1080");
+}
+
 // --- The preview's data -----------------------------------------------------------
 //
 // The trees this run built, written out for tools/render_preview.py to draw.
@@ -689,10 +926,13 @@ fn colour(value: Option<[u8; 4]>) -> Value {
     value.map_or(Value::Null, |c| json!(c))
 }
 
-/// One node and its children, as nested JSON.
-fn node_json(tree: &Tree, at: usize) -> Value {
+/// One node and its children, as nested JSON, each with the rectangle the
+/// engine's layout gave it.
+fn node_json(tree: &Tree, at: usize, laid: &ui::Laid) -> Value {
     let node = &tree.nodes[at];
+    let r = laid.rect;
     let mut out = json!({
+        "rect": [r.x, r.y, r.w, r.h],
         "name": node.name,
         "grow": node.grow,
         "size": node.size,
@@ -761,9 +1001,13 @@ fn node_json(tree: &Tree, at: usize) -> Value {
             kind(&format!("{other:?}").split_whitespace().next().unwrap_or("widget").to_lowercase());
         }
     }
-    let children = tree.nodes[at].children;
-    let first = children.first as usize;
-    let kids: Vec<Value> = (first..first + children.count as usize).map(|i| node_json(tree, i)).collect();
+    let first = tree.nodes[at].children.first as usize;
+    let kids: Vec<Value> = laid
+        .children
+        .iter()
+        .enumerate()
+        .map(|(n, child)| node_json(tree, first + n, child))
+        .collect();
     out.as_object_mut().unwrap().insert("children".into(), json!(kids));
     out
 }
@@ -825,10 +1069,23 @@ fn write_preview() {
         vec![Stack::new(r.granite, 124).unwrap(), Stack::new(r.marble, 270).unwrap()],
     );
     r.key(ALICE);
-    let inventory = node_json(&r.last(), 0);
+    let inventory = r.last();
     r.press(ALICE, "tab/shapes");
     r.press(ALICE, "stairs");
-    let crafter = node_json(&r.last(), 0);
+    let crafter = r.last();
+    // Both tabs laid out by the engine at a mid-size and a small window.
+    let screens: Vec<Value> = [(1280.0, 720.0), (800.0, 600.0)]
+        .into_iter()
+        .map(|(w, h)| {
+            let area = room(w, h);
+            let lay = |tree: &Tree| {
+                let laid = ui::layout(tree, ui::Rect::new(0, 0, area.0, area.1), &Ruler);
+                node_json(tree, 0, &laid)
+            };
+            json!({ "window": [w, h], "room": [area.0, area.1],
+                "inventory": lay(&inventory), "crafter": lay(&crafter) })
+        })
+        .collect();
 
     // Paths are relative to the repository root, so the file travels.
     let mut textures = serde_json::Map::new();
@@ -843,8 +1100,7 @@ fn write_preview() {
         "note": "written by tests/native; draw it with tools/render_preview.py",
         "font": format!("mods/{MOD}/fonts/CinzelDecorative-Bold.ttf"),
         "textures": textures,
-        "inventory": inventory,
-        "crafter": crafter,
+        "screens": screens,
         "hud": hud,
     });
     let target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target");
@@ -948,6 +1204,8 @@ fn main() {
     faults_land_on_the_mod_that_wrote_them();
     round_trip_views();
     disabled_callbacks();
+    the_look_is_declared();
+    screens_fit_without_scrolling();
     hud_check();
     write_preview();
     println!("PASS");

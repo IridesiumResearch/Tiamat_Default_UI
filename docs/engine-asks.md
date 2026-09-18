@@ -4,7 +4,40 @@ What the inventory has needed from the engine, found by building it. Each entry
 says what was seen, why the mod cannot fix it, and the smallest engine change
 that would. Newest first. Items are removed when they land.
 
+## Watched, not asked: Life's status tray and narrow windows (2026-09-18)
+
+Life draws a status tray in the bottom-right corner: a 150-pixel weather
+shield with effect names stacked above it, up to about 360 pixels high on the
+1080-tall HUD canvas at its fullest. It is deliberately outside Life's
+`reserve` (216), which only covers the centre, where sheets are.
+
+Run through the client's `panel::size_clear_of` with the 216 reserve, a sheet
+clears the tray by 170 to 270 pixels on 16:9 and 16:10 windows and by about 20
+on 4:3 (less the few pixels the theme frame is drawn outside the window). It
+reaches the tray only on a window narrower than about 1.28:1: by 14 pixels on
+a 5:4 monitor, and more on a window dragged tall and thin, and then only while
+the tray is at its fullest.
+
+Not an ask yet. If it matters, the engine-side fix is a reserve that is a
+rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
+right, 150 by 360"), with sheets narrowing before they overlap it. The mod
+cannot move a sheet itself.
+
 Nothing open. Landed so far, all asserted by the native check:
+
+- **5**, a container measures a child by the `size` it asked for (engine
+  26b87d8), and **6**, a screen claims its height once and no longer scrolls
+  in a sheet built to hold it (8d83855). The same class of bug, the interface
+  measuring something twice and disagreeing with itself. `section` no longer
+  sums its children's sizes itself; the README's wardrobe tab fits on the
+  engine's own measuring.
+- **7**, a HUD reserves the bottom of the screen (b3d237c): `hud.lua` is
+  registered with `reserve = 138`, and sheets rise to clear the tallest reserve
+  any mod declares.
+- **8**, a mod's look for the engine's own screens (88c42c9, 0c33026):
+  `[theme]` in `mod.toml` dresses the pause, settings and start screens and
+  every sheet, the inventory's included, so the tree no longer draws a frame
+  of its own.
 
 - **1**, a table handed back to its owner iterates, and **2**, a disabled
   mod's functions stop — engine 823aac3.

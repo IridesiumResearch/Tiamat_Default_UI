@@ -32,14 +32,14 @@ load("hooks")                     -- one engine registration per hook, many subs
 tdi.crafting = load("crafting")   -- loose stock, shape masks and the craft transaction
 tdi.screen = load("screen")       -- sessions, the tab and button registries, the dialog
 load("tab_items")                 -- Inventory: quick access, pack pages, off-hand
-load("tab_shapes")                -- Shape crafter
+load("tab_shapes")                -- Crafting: the shape crafter
 
 -- What other mods may call. One export per mod, so it is built whole first.
 game.export(load("exports"))
 
 -- The hotbar: the script, drawn on the player's machine from the engine's own
 -- HUD state, and the one value it needs from this side.
-game.register_hud_script("hud.lua")
+game.register_hud_script{ file = "hud.lua", reserve = tdi.config.hud_reserve }
 load("hotbar")
 
 game.register_sound{ id = "click", file = "sounds/click.wav", gain = 0.35 }

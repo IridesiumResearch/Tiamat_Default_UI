@@ -24,13 +24,40 @@ C.last_slot = 65535            -- the highest index `player:main` has
 C.last_page = 1 + (C.last_slot - C.later_pages_first + C.page_size) // C.page_size
 
 -- Layout, in virtual pixels ---------------------------------------------------
+--
+-- The engine gives a screen a fixed 4:3 sheet, three quarters of the window's
+-- height, and lays the tree into exactly that room. Nothing here scrolls:
+-- every size below is what the screen wants, and a smaller window shrinks the
+-- whole screen proportionally rather than cutting it off. These are chosen to
+-- fit a 1280x720 window at full size and an 800x600 one only slightly
+-- squeezed; the native check lays every screen out at both to prove it.
+--
+-- Nothing sets `cross_size`: the engine never caps it, so a squeezed row would
+-- have spilled whatever had one.
 
-C.columns = 6                  -- cells per row; six fits a narrow sheet
-C.cell = 58
-C.cell_gap = 5
-C.button_height = 44
-C.tab_underline = 4
-C.editor_size = 190
+C.frame_padding = 24           -- keeps the contents clear of the theme frame's corners
+C.header_height = 30
+C.tab_height = 40
+C.tab_underline = 3
+C.row_height = 34              -- a line of buttons, a heading with controls
+C.label_height = 20
+C.hint_height = 18
+C.gap = 6
+
+C.columns = 9                  -- the pack in rows as wide as the hotbar
+C.cell = 52
+C.cell_gap = 4
+C.offhand_gap = 12             -- between slot nine and the off-hand
+C.editor_width = 212           -- the shape editor's well; the controls take the rest
+
+-- The HUD -------------------------------------------------------------------
+
+-- How much of the bottom of the screen the hotbar needs, in the HUD's own
+-- virtual pixels (1080 tall on every monitor). A bottom-anchored command is
+-- drawn DOWN from its `y`, so this is the highest `y` in hud.lua, the status
+-- line at 130, plus a little air. The engine keeps its sheets above the
+-- tallest reserve any mod declares, so Life's hearts above this get theirs.
+C.hud_reserve = 138
 
 -- Tabs ----------------------------------------------------------------------
 

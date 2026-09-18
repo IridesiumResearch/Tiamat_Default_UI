@@ -234,6 +234,8 @@ end
 
 -- The screen ------------------------------------------------------------------
 
+-- The tabs, left to right. Nothing else goes in the strip, so every pixel of
+-- it is for tabs: at 800x600 it holds the built-in two and three or four more.
 local function strip(s)
     local row = {}
     for _, tab in ipairs(tabs) do
@@ -241,17 +243,31 @@ local function strip(s)
             row[#row + 1] = T.tab_button("tab/" .. tab.key, tab.label, s.tab == tab.key)
         end
     end
-    return T.box("row", row, 6)
+    row[#row + 1] = T.space(1)
+    return T.row(row, C.tab_height)
 end
 
--- Buttons for one tab (`key`), or for every tab (`nil`). Nil when there are none.
-local function button_row(key)
+-- The header: the name on the left, and the buttons other mods put on every
+-- tab at the right end.
+local function header()
+    local row = { T.label("T I A M O T", 16, T.colours.brass), T.space(1) }
+    for n, b in ipairs(buttons) do
+        if b.tab == nil then row[#row + 1] = T.button("button/" .. n, b.label, false, 15) end
+    end
+    local line = T.row(row, C.header_height)
+    line.align = "center"
+    return line
+end
+
+-- The buttons another mod put on one tab, as a row along its bottom, or nil.
+local function tab_buttons(key)
     local row = {}
     for n, b in ipairs(buttons) do
         if b.tab == key then row[#row + 1] = T.button("button/" .. n, b.label) end
     end
     if #row == 0 then return nil end
-    return T.box("row", row, 6)
+    row[#row + 1] = T.space(1)
+    return T.row(row, C.row_height)
 end
 
 local function body(player, tab)
@@ -265,6 +281,12 @@ local function body(player, tab)
     return tree
 end
 
+-- # The screen fits its sheet; nothing scrolls
+--
+-- The header and the tab strip have fixed heights. The body starts at zero
+-- and grows into everything left, so it is exactly the room the window has.
+-- A tab's content fills the body the same way; if it wants more than there
+-- is, the engine shrinks it proportionally rather than letting it run off.
 local function screen(player, s)
     local tab = current(s)
     local content = body(player, tab)
@@ -272,17 +294,13 @@ local function screen(player, s)
         tab = current(s)   -- the broken tab is gone; this is the first tab
         content = body(player, tab)
     end
+    content.size, content.grow = 0, 1
     local inner = { content }
-    inner[#inner + 1] = button_row(tab.key)
-    local children = {
-        T.label("T I A M O T", 18, T.colours.brass),
-        T.label("Inventory & Crafting", 30),
-        strip(s),
-    }
-    children[#children + 1] = button_row(nil)
-    children[#children + 1] = { type = "scroll", name = "inventory_body", size = 0, grow = 1,
-        children = { T.box("column", inner, 10) } }
-    return T.frame(children)
+    inner[#inner + 1] = tab_buttons(tab.key)
+    local main = T.box("column", inner, 8)
+    main.size, main.grow = 0, 1
+
+    return T.frame({ header(), strip(s), main })
 end
 
 -- Whether a tree is being built. Another mod's build may call `redraw` or

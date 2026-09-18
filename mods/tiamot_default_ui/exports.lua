@@ -88,12 +88,22 @@ return {
     -- The builders this mod's own tabs are made of. What they answer is
     -- read-only on your side: build a new table around it rather than
     -- changing a field.
+    --
+    -- Nothing scrolls: a tab is given the body of the screen and no more, and
+    -- the engine shrinks what does not fit. So give rows a height (`row`),
+    -- let one thing take the leftover (`space(1)`), and keep lines short.
     widgets = {
         label = function(text, size, colour)
             return T.label(tostring(text), size, colour)
         end,
-        button = function(name, text, active)
-            return T.button(name, tostring(text), active)
+        hint = function(text)
+            return T.hint(tostring(text))
+        end,
+        button = function(name, text, active, text_size)
+            return T.button(name, tostring(text), active, text_size)
+        end,
+        wide_button = function(name, text, active, text_size)
+            return T.wide_button(name, tostring(text), active, text_size)
         end,
         section = function(title, children)
             return T.section(tostring(title), type(children) == "table" and children or {})
@@ -104,8 +114,24 @@ return {
         box = function(direction, children, gap, padding)
             return T.box(direction, type(children) == "table" and children or {}, gap, padding)
         end,
+        row = function(children, size, gap)
+            return T.row(type(children) == "table" and children or {}, size, gap)
+        end,
+        space = function(grow, size)
+            return T.space(grow, size)
+        end,
         well = function(child, padding)
             return T.well(child, padding)
         end,
+    },
+
+    -- The sizes the built-in tabs use, so a tab can match them.
+    sizes = {
+        cell = tdi.config.cell,
+        cell_gap = tdi.config.cell_gap,
+        row = tdi.config.row_height,
+        label = tdi.config.label_height,
+        hint = tdi.config.hint_height,
+        gap = tdi.config.gap,
     },
 }

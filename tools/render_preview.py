@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: Iridesium
 # SPDX-License-Identifier: GPL-3.0-only
-"""Draw docs/preview.png from the trees the native check built.
+"""Draw docs/preview.png from the screens the native check laid out.
 
-An approximate layout illustration, not a game screenshot: this lays the
-widgets out the way the client would and stands in for the parts only a GPU
-does — item icons, the chiselled block, the real font metrics.
+An approximate illustration, not a game screenshot. Every rectangle comes from
+the engine's own `ui::layout`, run by the native check on the real trees at a
+1280x720 and an 800x600 window, so where things sit is the engine's answer.
+What is stood in for is what only the client draws: item icons, the chiselled
+block, and the client's own face for hint text (Go Mono here).
 
-It reads tests/native/target/preview.json, which the native check writes, so
-the picture comes from the same trees the engine's own checker passed and
-there is no second copy of the mod's layout to keep in step. Run:
+It reads tests/native/target/preview.json, which the native check writes:
 
     cargo run --manifest-path tests/native/Cargo.toml
     python tools/render_preview.py
@@ -26,25 +26,25 @@ ROOT = Path(__file__).resolve().parents[1]
 ENGINE = ROOT.parent / 'Tiamot'
 DATA = ROOT / 'tests/native/target/preview.json'
 OUT = ROOT / 'docs/preview.png'
-W, H = 1800, 1400
 
 if not DATA.exists():
     sys.exit(f'{DATA} is missing: run the native check first (see this file\'s docstring)')
 data = json.loads(DATA.read_text())
 
-im = Image.new('RGB', (W, H), '#101417')
-d = ImageDraw.Draw(im)
 DISPLAY = str(ROOT / data['font'])
 MONO = str(ENGINE / 'crates/client/assets/third-party/go-font/Go-Mono.ttf')
 textures = {h: Image.open(ROOT / p).convert('RGB') for h, p in data['textures'].items()}
 
+MARGIN, GAP, BAR = 48, 56, 36
+screens = data['screens']
+W = MARGIN * 2 + GAP + 2 * screens[0]['room'][0]
+H = MARGIN + sum(BAR + 44 + s["room"][1] + GAP for s in screens) + 190
+im = Image.new('RGB', (W, H), '#101417')
+d = ImageDraw.Draw(im)
 
-def font(size):
-    return ImageFont.truetype(DISPLAY, max(8, round(size)))
 
-
-def mono(size):
-    return ImageFont.truetype(MONO, max(8, round(size)))
+def font(size, display=True):
+    return ImageFont.truetype(DISPLAY if display else MONO, max(7, round(size)))
 
 
 def colour(value, fallback):
@@ -80,8 +80,10 @@ def frame(hash_, x, y, w, h, sliced=True):
     """A nine-slice, or the whole image: the corners are the outer third."""
     source = textures[hash_]
     x, y, w, h = map(round, (x, y, w, h))
+    if w < 2 or h < 2:
+        return
     if not sliced:
-        im.paste(source.resize((max(1, w), max(1, h)), Image.Resampling.LANCZOS), (x, y))
+        im.paste(source.resize((w, h), Image.Resampling.LANCZOS), (x, y))
         return
     ex, ey = min(source.width / 3, w / 2), min(source.height / 3, h / 2)
     xs, ys, uv = [0, ex, w - ex, w], [0, ey, h - ey, h], [0, 1 / 3, 2 / 3, 1]
@@ -96,41 +98,17 @@ def frame(hash_, x, y, w, h, sliced=True):
             im.paste(crop.resize((c - a, e - b), Image.Resampling.LANCZOS), (x + a, y + b))
 
 
-# --- Layout ---------------------------------------------------------------------
-
-def text_of(node):
-    if node['type'] == 'dropdown':
-        return node['options'][node['selected'] - 1]
-    return node.get('text', '')
-
-
-def natural(node):
-    """What a widget asks for, along the parent's direction and across it."""
-    kind = node['type']
+def text_in(text, x, y, w, h, node, centred=False, inset=0):
+    """Text vertically centred in its box, clipped to it as the client clips."""
     size = style(node, 'text_size') or 14
-    if kind in ('container', 'scroll'):
-        children = node['children']
-        if kind == 'scroll':
-            return natural(children[0]) if children else (0, 0)
-        row = node.get('direction') == 'row'
-        pad, gap = node.get('padding', 0), node.get('gap', 0)
-        sizes = [c.get('size') or natural(c)[0 if row else 1] for c in children]
-        cross = [c.get('cross_size') or natural(c)[1 if row else 0] for c in children]
-        along = sum(sizes) + max(0, len(children) - 1) * gap + 2 * pad
-        across = max(cross, default=0) + 2 * pad
-        return (along, across) if row else (across, along)
-    if kind == 'item_slot':
-        return 36, 36
-    if kind == 'shape_editor':
-        return 192, 192
-    if kind == 'item_grid':
-        return node['columns'] * 40, -(-node['count'] // node['columns']) * 40
-    if kind == 'spacer':
-        return 0, 0
-    text = text_of(node)
-    width = d.textlength(text, font=font(size))
-    padding = 32 if kind == 'dropdown' else (40 if style(node, 'nine_slice') else 16) if kind == 'button' else 0
-    return width + padding, size * 1.2 + (8 if kind in ('button', 'dropdown') else 0)
+    face = font(size, style(node, 'font') is not None)
+    room = w - 2 * inset
+    while text and d.textlength(text, font=face) > room:
+        text = text[:-1]
+    width = d.textlength(text, font=face)
+    left = x + (w - width) / 2 if centred else x + inset
+    d.text((left, y + (h - size) / 2 - 2), text, font=face,
+           fill=colour(style(node, 'text_colour'), '#e0d8c4'))
 
 
 # Slots with something in them, as the picture's representative inventory.
@@ -138,93 +116,96 @@ FILLED = {1: '4+16', 2: '10', 3: '8', 6: '8', 10: '12', 11: '2', 14: '1', 20: '5
 CUT = (3, 14)
 
 
-def paint(node, x, y, w, h):
-    kind = node['type']
-    box = (round(x), round(y), round(x + w), round(y + h))
-    background = style(node, 'background')
-    if background and background[3] > 0:
-        d.rounded_rectangle(box, radius=3, fill=colour(background, '#161a1d'))
-    if style(node, 'border'):
-        d.rounded_rectangle(box, radius=3, outline=colour(style(node, 'border'), '#5b605f'), width=1)
-    if style(node, 'nine_slice'):
-        frame(style(node, 'nine_slice'), x, y, w, h)
-
-    if kind == 'scroll':
-        child = node['children'][0]
-        paint(child, x, y, w, max(h, natural(child)[1]))
-    elif kind == 'container':
-        row = node.get('direction') == 'row'
-        pad, gap = node.get('padding', 0), node.get('gap', 0)
-        children = node['children']
-        along = (w if row else h) - 2 * pad
-        across = (h if row else w) - 2 * pad
-        wants = [natural(c) for c in children]
-        sizes = [c.get('size') or n[0 if row else 1] for c, n in zip(children, wants)]
-        space = along - max(0, len(children) - 1) * gap
-        used = sum(sizes)
-        grow = sum(c.get('grow', 0) for c in children)
-        if used > space and used:
-            sizes = [v * max(0, space) / used for v in sizes]
-        elif grow:
-            sizes = [v + (space - used) * c.get('grow', 0) / grow for c, v in zip(children, sizes)]
-        at = 0
-        for child, size, want in zip(children, sizes, wants):
-            other = child.get('cross_size')
-            if other is None:
-                other = across if node.get('align') == 'stretch' else min(across, want[1 if row else 0])
-            off = (across - other) / 2 if node.get('align') == 'center' else 0
-            paint(child,
-                  x + pad + (at if row else off), y + pad + (off if row else at),
-                  size if row else other, other if row else size)
-            at += size + gap
-    elif kind in ('label', 'button', 'dropdown'):
-        text = text_of(node)
-        size = style(node, 'text_size') or 14
-        face = font(size)
-        width = d.textlength(text, font=face)
-        left = x + (w - width) / 2 if kind == 'button' else x + (16 if kind == 'dropdown' else 0)
-        d.text((left, y + (h - size) / 2 - 2), text, font=face, fill=colour(style(node, 'text_colour'), '#e0d8c4'))
-    elif kind == 'item_slot':
-        slot(node['index'], x, y, w, h)
-    elif kind == 'item_grid':
-        cell = min(w / node['columns'], 40)
-        for n in range(node['count']):
-            slot(node['first'] + n, x + (n % node['columns']) * cell, y + (n // node['columns']) * cell, cell, cell)
-    elif kind == 'shape_editor':
-        shape(x, y, w, h, node['shape'])
-        for at, arrow in [(x + 2, '<'), (x + w - 28, '>')]:
-            d.rounded_rectangle((at, y + 2, at + 26, y + 28), radius=3, fill='#404344')
-            d.text((at + 8, y + 5), arrow, font=mono(13), fill='#ded6c3')
-
-
 def slot(index, x, y, w, h):
     if index not in FILLED:
         return
+    side = min(w, h)
     if index in CUT:
         shape(x + 6, y + 3, w - 12, h - 12, 0x7)
     else:
-        cube(x + w / 2, y + h * .31, min(w, h) * .49, (158, 147, 121) if index % 2 else (107, 121, 122))
+        cube(x + w / 2, y + h * .31, side * .49, (158, 147, 121) if index % 2 else (107, 121, 122))
     quantity = FILLED[index]
-    face = mono(15)
-    d.text((x + w - 4 - d.textlength(quantity, font=face), y + h - 21), quantity, font=face, fill='#ebdfc4')
+    face = font(13, False)
+    d.text((x + w - 5 - d.textlength(quantity, font=face), y + h - 19), quantity, font=face, fill='#ebdfc4')
 
 
-# --- The page ---------------------------------------------------------------------
+def paint(node, ox, oy):
+    x, y, w, h = node['rect']
+    x, y = x + ox, y + oy
+    kind = node['type']
+    background = style(node, 'background')
+    if background and background[3] > 0:
+        d.rectangle((x, y, x + w - 1, y + h - 1), fill=colour(background, '#161a1d'))
+    if style(node, 'border') and kind != 'container':
+        d.rounded_rectangle((x, y, x + w - 1, y + h - 1), radius=3,
+                            outline=colour(style(node, 'border'), '#5b605f'), width=1)
+    if style(node, 'nine_slice'):
+        frame(style(node, 'nine_slice'), x, y, w, h)
+    if kind == 'label':
+        text_in(node['text'], x, y, w, h, node)
+    elif kind == 'button':
+        text_in(node['text'], x, y, w, h, node, centred=True, inset=4)
+    elif kind == 'dropdown':
+        text_in(node['options'][node['selected'] - 1] + '', x, y, w - 20, h, node, inset=12)
+        d.text((x + w - 22, y + h / 2 - 8), 'v', font=font(12, False), fill='#c9bd9f')
+    elif kind == 'checkbox':
+        d.rectangle((x + 2, y + h / 2 - 7, x + 16, y + h / 2 + 7), outline='#9aa4a2')
+        text_in(node['text'], x + 22, y, w - 22, h, node)
+    elif kind == 'item_slot':
+        slot(node['index'], x, y, w, h)
+    elif kind == 'item_grid':
+        columns = node['columns']
+        cell = min(w / columns, 40)
+        for n in range(node['count']):
+            cx, cy = x + (n % columns) * cell, y + (n // columns) * cell
+            d.rectangle((cx + 1, cy + 1, cx + cell - 2, cy + cell - 2), outline='#59605f')
+    elif kind == 'shape_editor':
+        side = min(w, h)
+        shape(x + (w - side) / 2, y + (h - side) / 2, side, side, node['shape'])
+        for at, arrow in [(x + 4, '<'), (x + w - 30, '>')]:
+            d.rounded_rectangle((at, y + 4, at + 26, y + 30), radius=3, fill='#404344')
+            d.text((at + 8, y + 7), arrow, font=font(13, False), fill='#ded6c3')
+    for child in node.get('children', []):
+        paint(child, ox, oy)
 
-for left, tree, title in [(48, data['inventory'], '01  /  INVENTORY'),
-                          (936, data['crafter'], '02  /  SHAPE CRAFTER')]:
-    d.text((left, 38), title, font=font(14), fill='#ad956b')
-    paint(tree, left, 80, 816, 1030)
 
-d.text((48, 1140), '03  /  QUICK ACCESS HUD', font=font(14), fill='#ad956b')
+# The theme's pictures, found by file name: mod.toml's [theme] names them.
+THEMED = {Path(p).name: h for h, p in data['textures'].items()}
+
+
+def sheet(x, y, w, h):
+    """The engine's own chrome around a screen, wearing mod.toml's [theme]:
+    the ornate frame around the whole sheet, the iron frame on Close."""
+    left, top, right, bottom = x - 8, y - BAR - 8, x + w + 7, y + h + 7
+    d.rectangle((left, top, right, bottom), fill='#131619')
+    frame(THEMED['ornate-panel.png'], left - 8, top - 8, right - left + 16, bottom - top + 16)
+    frame(THEMED['iron-slot.png'], x + 16, y - BAR + 4, 78, 24)
+    d.text((x + 26, y - BAR + 8), '<  Close', font=font(12), fill='#e1d7bf')
+
+
+top = MARGIN
+for n, screen in enumerate(screens):
+    rw, rh = screen['room']
+    ww, wh = screen['window']
+    label = f"{'01' if n == 0 else '02'}  /  A {int(ww)}x{int(wh)} WINDOW  /  INVENTORY AND CRAFTING, AS LAID OUT BY THE ENGINE"
+    d.text((MARGIN, top), label, font=font(14), fill='#ad956b')
+    y = top + 44 + BAR
+    for column, key in enumerate(('inventory', 'crafter')):
+        x = MARGIN + column * (rw + GAP)
+        sheet(x, y, rw, rh)
+        paint(screen[key], x, y)
+    top = y + rh + GAP
+
+d.text((MARGIN, top), '03  /  QUICK ACCESS HUD', font=font(14), fill='#ad956b')
+base = top + 170
 for command in data['hud']:
-    # The HUD anchors to the bottom centre; the page puts that at y = 1340.
-    x, y = W / 2 + command['x'], 1340 - command['y']
+    # The HUD anchors to the bottom centre of the window.
+    x, y = W / 2 + command['x'], base - command['y']
     ink = colour(command.get('colour'), '#ddd4bf')
     if command['kind'] == 'rect':
         d.rectangle((x, y, x + command['w'] - 1, y + command['h'] - 1), fill=ink)
     elif command['kind'] == 'text':
-        d.text((x, y), command['text'], font=mono(command['size']), fill=ink)
+        d.text((x, y), command['text'], font=font(command['size'], False), fill=ink)
     elif command['kind'] == 'image':
         frame(command['hash'], x, y, command['w'], command['h'], sliced=False)
     elif command['kind'] == 'icon':
@@ -233,8 +214,5 @@ for command in data['hud']:
         else:
             cube(x + command['size'] / 2, y + command['size'] * .25, command['size'] * .7)
 
-d.text((48, 1372),
-       'LUA LAYOUT PREVIEW  /  Representative items  /  In-game appearance and interaction pending verification',
-       font=font(12), fill='#82928e')
 im.save(OUT)
 print(OUT)
