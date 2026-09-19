@@ -759,14 +759,21 @@ impl ui::Measure for Ruler {
 /// The room a screen gets in a window `w` by `h` points: the client's
 /// `panel::size_clear_of` with this mod's HUD reserve (converted from the
 /// HUD's 1080-tall canvas as `panel::reserve_points` does), less the sheet's
-/// margins and its bar with Close on it.
+/// margins and its bar with Close on it. A framed sheet's margin is the
+/// client's `FRAME_BORDER`, 18 points a side where egui's own is 6, so a
+/// themed sheet has 24 fewer each way than a plain one.
 fn room(w: f32, h: f32) -> (i32, i32) {
     let reserve = (HUD_RESERVE / 1080.0 * h).clamp(0.0, h / 2.0);
     let height = (h * 0.75).min(h - reserve).max(120.0);
     let width = (height * 4.0 / 3.0).min(w * 0.9).max(160.0);
     let height = (width * 3.0 / 4.0).min(height).max(120.0);
-    ((width - 16.0) as i32, (height - 48.0) as i32)
+    ((width - 16.0 - FRAMED) as i32, (height - 48.0 - FRAMED) as i32)
 }
+
+/// What a themed sheet's frame takes from each dimension beyond egui's own
+/// margin: `2 * (FRAME_BORDER - 6)`. This mod declares a frame, so every
+/// sheet it draws is framed.
+const FRAMED: f32 = 24.0;
 
 /// config.lua's `hud_reserve`, checked against what the mod registers in
 /// `the_look_is_declared`.
@@ -862,11 +869,18 @@ fn the_look_is_declared() {
     let dir = mod_dir();
     let manifest = tiamot_core::modload::ModManifest::load(&dir).expect("mod.toml loads and validates");
     let theme = manifest.theme.expect("mod.toml declares a [theme]");
-    for (what, file) in [("font", &theme.font), ("sheet", &theme.sheet), ("button", &theme.button)] {
+    for (what, file) in [
+        ("font", &theme.font),
+        ("text_font", &theme.text_font),
+        ("sheet", &theme.sheet),
+        ("button", &theme.button),
+    ] {
         let file = file.as_deref().unwrap_or_else(|| panic!("the theme names no {what}"));
         assert!(dir.join(file).is_file(), "the theme's {what} is not a file: {file}");
     }
     assert_eq!(theme.sheet.as_deref(), Some("textures/ornate-panel.png"));
+    // Chat and the engine's prose in the face hints are drawn in, not Cinzel.
+    assert_eq!(theme.text_font.as_deref(), Some("fonts/Spectral-Regular.ttf"));
     let c = &theme.colours;
     for (what, colour) in [
         ("text", &c.text),

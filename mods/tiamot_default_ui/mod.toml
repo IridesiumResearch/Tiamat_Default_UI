@@ -20,7 +20,8 @@ license = "GPL-3.0-only"
 # that declares a theme wins, so a mod built on this one should not declare
 # its own. The dialog palette in theme.lua uses the same colours.
 [theme]
-font = "fonts/CinzelDecorative-Bold.ttf"
+font = "fonts/CinzelDecorative-Bold.ttf"      # headings and buttons
+text_font = "fonts/Spectral-Regular.ttf"      # chat, text fields, descriptions
 sheet = "textures/ornate-panel.png"
 button = "textures/iron-slot.png"
 

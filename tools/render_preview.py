@@ -37,6 +37,7 @@ MONO = str(ENGINE / 'crates/client/assets/third-party/go-font/Go-Mono.ttf')
 textures = {h: Image.open(ROOT / p).convert('RGB') for h, p in data['textures'].items()}
 
 MARGIN, GAP, BAR = 48, 56, 36
+FRAME_BORDER = 18  # client::panel's, whatever the art's resolution
 screens = data['screens']
 W = MARGIN * 2 + GAP + 2 * screens[0]['room'][0]
 H = MARGIN + sum(BAR + 44 + s["room"][1] + GAP for s in screens) + 190
@@ -78,8 +79,9 @@ def shape(x, y, w, h, mask):
                     cube(cx + (xx - z) * s * .49, cy + (xx + z) * s * .245 - yy * s * .53, s)
 
 
-def frame(hash_, x, y, w, h, sliced=True):
-    """A nine-slice, or the whole image: the corners are the outer third."""
+def frame(hash_, x, y, w, h, sliced=True, border=None):
+    """A nine-slice, or the whole image: the corners are the outer third,
+    drawn `border` pixels deep if given, or at the art's own size."""
     source = textures[hash_]
     x, y, w, h = map(round, (x, y, w, h))
     if w < 2 or h < 2:
@@ -87,7 +89,8 @@ def frame(hash_, x, y, w, h, sliced=True):
     if not sliced:
         im.paste(source.resize((w, h), Image.Resampling.LANCZOS), (x, y))
         return
-    ex, ey = min(source.width / 3, w / 2), min(source.height / 3, h / 2)
+    ex, ey = (border or source.width / 3), (border or source.height / 3)
+    ex, ey = min(ex, w / 2), min(ey, h / 2)
     xs, ys, uv = [0, ex, w - ex, w], [0, ey, h - ey, h], [0, 1 / 3, 2 / 3, 1]
     for row in range(3):
         for column in range(3):
@@ -179,15 +182,13 @@ def sheet(x, y, w, h):
     """The engine's own chrome around a screen, wearing mod.toml's [theme]:
     the ornate frame around the whole sheet, the iron frame on Close.
 
-    The frame goes where the client paints it: the window's content expanded
-    by egui's window margin, so its outer edge is about 8 pixels from the
-    room. Drawn any further out, the preview hides the trim the bar and the
-    engine's own screens are sitting on (engine ask 10)."""
-    left, top, right, bottom = x - 8, y - BAR - 8, x + w + 7, y + h + 7
+    The frame goes where the client paints it: FRAME_BORDER (18) deep, its
+    art scaled to that depth, around contents inset by the same 18."""
+    left, top, right, bottom = x - 20, y - BAR - 20, x + w + 19, y + h + 19
     d.rectangle((left, top, right, bottom), fill='#131619')
-    frame(THEMED['ornate-panel.png'], left, top, right - left, bottom - top)
-    frame(THEMED['iron-slot.png'], x + 16, y - BAR + 4, 78, 24)
-    d.text((x + 26, y - BAR + 8), '<  Close', font=font(12, DISPLAY), fill='#e1d7bf')
+    frame(THEMED['ornate-panel.png'], left, top, right - left, bottom - top, border=FRAME_BORDER)
+    frame(THEMED['iron-slot.png'], x, y - BAR + 4, 78, 24)
+    d.text((x + 10, y - BAR + 8), '<  Close', font=font(12, DISPLAY), fill='#e1d7bf')
 
 
 top = MARGIN

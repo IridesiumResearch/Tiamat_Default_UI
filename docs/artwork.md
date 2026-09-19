@@ -36,8 +36,8 @@ License, each with its licence beside it:
   is lowercase where Cinzel's is small capitals.
 
 The mod registers them as `tiamot_default_ui:display` and `tiamot_default_ui:text`
-and selects them through `style.font`. `[theme] font` is Cinzel, so the engine's
-own screens, chat included, draw everything in it, and a widget that names no
-font does too. That is why hints name the text face. Chat cannot yet be given
-Spectral: see ask 9 in `docs/engine-asks.md`. A client that cannot load a font
-uses the engine's fallback.
+and selects them through `style.font`. `[theme] font` is Cinzel and `[theme]
+text_font` is Spectral, so the engine's own screens put headings and buttons
+in Cinzel and chat, text fields and prose in Spectral. Hints name the text face
+themselves, so they read the same on any client. A client that cannot load a
+font uses the engine's fallback.

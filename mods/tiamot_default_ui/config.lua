@@ -35,7 +35,7 @@ C.last_page = 1 + (C.last_slot - C.later_pages_first + C.page_size) // C.page_si
 -- Nothing sets `cross_size`: the engine never caps it, so a squeezed row would
 -- have spilled whatever had one.
 
-C.frame_padding = 24           -- keeps the contents clear of the theme frame's corners
+C.frame_padding = 8            -- breathing room: the engine already keeps contents off the frame's trim
 C.header_height = 30
 C.tab_height = 40
 C.tab_underline = 3
