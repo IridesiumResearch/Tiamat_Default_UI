@@ -39,5 +39,5 @@ The mod registers them as `tiamot_default_ui:display` and `tiamot_default_ui:tex
 and selects them through `style.font`. `[theme] font` is Cinzel, so the engine's
 own screens, chat included, draw everything in it, and a widget that names no
 font does too. That is why hints name the text face. Chat cannot yet be given
-Spectral: see ask 9 in `../Engine_Asks/tiamot_default_ui.md`, beside this repo. A client that cannot load a font
+Spectral: see ask 9 in `docs/engine-asks.md`. A client that cannot load a font
 uses the engine's fallback.
