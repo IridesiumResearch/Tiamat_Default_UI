@@ -1,9 +1,10 @@
 # Engine asks from Tiamot Default UI
 
-From the `tiamot_default_ui` mod (repo `Tiamot_Default_Inventory`, beside this
-folder). Kept in two places with the same text: here, where the engine agent
-reads every mod's asks, and in that repo as `docs/engine-asks.md`, so they are
-on GitHub with the mod. Change both together.
+From the `tiamot_default_ui` mod (repo `Tiamot_Default_Inventory`, beside the
+engine). Kept in two places with the same text: in the engine repo as
+`docs/engine-asks/tiamot_default_ui.md`, where the engine agent reads every
+mod's asks, and in the mod's repo as `docs/engine-asks.md`, so they are on
+GitHub with the mod. Change both together.
 
 What the inventory has needed from the engine, found by building it. Each entry
 says what was seen, why the mod cannot fix it, and the smallest engine change
