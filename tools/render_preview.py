@@ -31,7 +31,8 @@ if not DATA.exists():
     sys.exit(f'{DATA} is missing: run the native check first (see this file\'s docstring)')
 data = json.loads(DATA.read_text())
 
-DISPLAY = str(ROOT / data['font'])
+DISPLAY = 'tiamot_default_ui:display'
+FONTS = {name: str(ROOT / path) for name, path in data['fonts'].items()}
 MONO = str(ENGINE / 'crates/client/assets/third-party/go-font/Go-Mono.ttf')
 textures = {h: Image.open(ROOT / p).convert('RGB') for h, p in data['textures'].items()}
 
@@ -43,8 +44,9 @@ im = Image.new('RGB', (W, H), '#101417')
 d = ImageDraw.Draw(im)
 
 
-def font(size, display=True):
-    return ImageFont.truetype(DISPLAY if display else MONO, max(7, round(size)))
+def font(size, name=None):
+    """The face a widget names, or the engine's monospace for one it does not."""
+    return ImageFont.truetype(FONTS.get(name, MONO), max(7, round(size)))
 
 
 def colour(value, fallback):
@@ -101,7 +103,7 @@ def frame(hash_, x, y, w, h, sliced=True):
 def text_in(text, x, y, w, h, node, centred=False, inset=0):
     """Text vertically centred in its box, clipped to it as the client clips."""
     size = style(node, 'text_size') or 14
-    face = font(size, style(node, 'font') is not None)
+    face = font(size, style(node, 'font'))
     room = w - 2 * inset
     while text and d.textlength(text, font=face) > room:
         text = text[:-1]
@@ -125,7 +127,7 @@ def slot(index, x, y, w, h):
     else:
         cube(x + w / 2, y + h * .31, side * .49, (158, 147, 121) if index % 2 else (107, 121, 122))
     quantity = FILLED[index]
-    face = font(13, False)
+    face = font(13)
     d.text((x + w - 5 - d.textlength(quantity, font=face), y + h - 19), quantity, font=face, fill='#ebdfc4')
 
 
@@ -147,7 +149,7 @@ def paint(node, ox, oy):
         text_in(node['text'], x, y, w, h, node, centred=True, inset=4)
     elif kind == 'dropdown':
         text_in(node['options'][node['selected'] - 1] + '', x, y, w - 20, h, node, inset=12)
-        d.text((x + w - 22, y + h / 2 - 8), 'v', font=font(12, False), fill='#c9bd9f')
+        d.text((x + w - 22, y + h / 2 - 8), 'v', font=font(12), fill='#c9bd9f')
     elif kind == 'checkbox':
         d.rectangle((x + 2, y + h / 2 - 7, x + 16, y + h / 2 + 7), outline='#9aa4a2')
         text_in(node['text'], x + 22, y, w - 22, h, node)
@@ -164,7 +166,7 @@ def paint(node, ox, oy):
         shape(x + (w - side) / 2, y + (h - side) / 2, side, side, node['shape'])
         for at, arrow in [(x + 4, '<'), (x + w - 30, '>')]:
             d.rounded_rectangle((at, y + 4, at + 26, y + 30), radius=3, fill='#404344')
-            d.text((at + 8, y + 7), arrow, font=font(13, False), fill='#ded6c3')
+            d.text((at + 8, y + 7), arrow, font=font(13), fill='#ded6c3')
     for child in node.get('children', []):
         paint(child, ox, oy)
 
@@ -175,12 +177,17 @@ THEMED = {Path(p).name: h for h, p in data['textures'].items()}
 
 def sheet(x, y, w, h):
     """The engine's own chrome around a screen, wearing mod.toml's [theme]:
-    the ornate frame around the whole sheet, the iron frame on Close."""
+    the ornate frame around the whole sheet, the iron frame on Close.
+
+    The frame goes where the client paints it: the window's content expanded
+    by egui's window margin, so its outer edge is about 8 pixels from the
+    room. Drawn any further out, the preview hides the trim the bar and the
+    engine's own screens are sitting on (engine ask 10)."""
     left, top, right, bottom = x - 8, y - BAR - 8, x + w + 7, y + h + 7
     d.rectangle((left, top, right, bottom), fill='#131619')
-    frame(THEMED['ornate-panel.png'], left - 8, top - 8, right - left + 16, bottom - top + 16)
+    frame(THEMED['ornate-panel.png'], left, top, right - left, bottom - top)
     frame(THEMED['iron-slot.png'], x + 16, y - BAR + 4, 78, 24)
-    d.text((x + 26, y - BAR + 8), '<  Close', font=font(12), fill='#e1d7bf')
+    d.text((x + 26, y - BAR + 8), '<  Close', font=font(12, DISPLAY), fill='#e1d7bf')
 
 
 top = MARGIN
@@ -188,7 +195,7 @@ for n, screen in enumerate(screens):
     rw, rh = screen['room']
     ww, wh = screen['window']
     label = f"{'01' if n == 0 else '02'}  /  A {int(ww)}x{int(wh)} WINDOW  /  INVENTORY AND CRAFTING, AS LAID OUT BY THE ENGINE"
-    d.text((MARGIN, top), label, font=font(14), fill='#ad956b')
+    d.text((MARGIN, top), label, font=font(14, DISPLAY), fill='#ad956b')
     y = top + 44 + BAR
     for column, key in enumerate(('inventory', 'crafter')):
         x = MARGIN + column * (rw + GAP)
@@ -196,7 +203,7 @@ for n, screen in enumerate(screens):
         paint(screen[key], x, y)
     top = y + rh + GAP
 
-d.text((MARGIN, top), '03  /  QUICK ACCESS HUD', font=font(14), fill='#ad956b')
+d.text((MARGIN, top), '03  /  QUICK ACCESS HUD', font=font(14, DISPLAY), fill='#ad956b')
 base = top + 170
 for command in data['hud']:
     # The HUD anchors to the bottom centre of the window.
@@ -205,7 +212,7 @@ for command in data['hud']:
     if command['kind'] == 'rect':
         d.rectangle((x, y, x + command['w'] - 1, y + command['h'] - 1), fill=ink)
     elif command['kind'] == 'text':
-        d.text((x, y), command['text'], font=font(command['size'], False), fill=ink)
+        d.text((x, y), command['text'], font=font(command['size']), fill=ink)
     elif command['kind'] == 'image':
         frame(command['hash'], x, y, command['w'], command['h'], sliced=False)
     elif command['kind'] == 'icon':

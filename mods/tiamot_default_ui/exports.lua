@@ -81,6 +81,7 @@ return {
     -- The look, for a tab that wants to match it.
     theme = {
         font = T.font,
+        text_font = T.text_font,
         colours = T.colours,
         frames = T.frames,
     },

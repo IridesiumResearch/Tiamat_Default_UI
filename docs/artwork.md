@@ -23,10 +23,21 @@ HUD references through the same hashes.
 Framed widgets specify transparent backgrounds, because the native renderer
 paints their backgrounds after the frame. Text and borders remain separate.
 
-`mods/tiamot_default_ui/fonts/CinzelDecorative-Bold.ttf` is unchanged from Google Fonts:
-https://github.com/google/fonts/tree/main/ofl/cinzeldecorative
-Its SIL Open Font License is included as `fonts/OFL.txt`.
+Two faces, both unchanged from Google Fonts and under the SIL Open Font
+License, each with its licence beside it:
 
-The mod registers `tiamot_default_ui:display` and selects it through `style.font`.
-This changes dialog text only; native menus and HUD labels retain engine fonts.
-A client that cannot load the font uses the engine fallback.
+- `fonts/CinzelDecorative-Bold.ttf`, the display face, for titles, headings and
+  buttons: https://github.com/google/fonts/tree/main/ofl/cinzeldecorative
+  (`fonts/OFL-Cinzel.txt`).
+- `fonts/Spectral-Regular.ttf`, the text face, for anything read as a sentence:
+  https://github.com/google/fonts/tree/main/ofl/spectral
+  (`fonts/OFL-Spectral.txt`). A serif drawn for screens, it is about 0.46 em a
+  character over this mod's strings, against Cinzel's 0.83, and its lowercase
+  is lowercase where Cinzel's is small capitals.
+
+The mod registers them as `tiamot_default_ui:display` and `tiamot_default_ui:text`
+and selects them through `style.font`. `[theme] font` is Cinzel, so the engine's
+own screens, chat included, draw everything in it, and a widget that names no
+font does too. That is why hints name the text face. Chat cannot yet be given
+Spectral: see ask 9 in `../Engine_Asks/tiamot_default_ui.md`, beside this repo. A client that cannot load a font
+uses the engine's fallback.

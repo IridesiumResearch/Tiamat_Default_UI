@@ -33,7 +33,7 @@ mods/tiamot_default_ui/          the mod (this is what the engine loads)
   mod.toml                       manifest
   init.lua                       load order and the export, nothing else
   config.lua                     slot layout, sizes, tab order, limits on other mods' trees
-  theme.lua                      palette, frame pictures, the display font, widget builders
+  theme.lua                      palette, frame pictures, the two fonts, widget builders
   hooks.lua                      one engine registration per hook, many subscribers
   crafting.lua                   loose stock, shape masks, the craft transaction
   screen.lua                     sessions, the tab and button registries, the one dialog
@@ -168,7 +168,7 @@ end
 | `add_button{ id, label, on_press, tab? }` | A button. Without `tab` it sits at the right end of the header on every tab; with a tab id it sits along the bottom of that tab. `on_press(player)` is called, then the screen is redrawn. |
 | `open(player, tab?)` | Opens the screen, on a tab if you name one. Answers whether it is open. |
 | `close(player)`, `redraw(player)`, `is_open(player)`, `current_tab(player)` | What they say. `redraw` does nothing when the screen is closed. |
-| `theme` | `font`, `colours` (`clear`, `edge`, `brass`, `ink`, `muted`, `accent`) and `frames` (`panel`, `slot`, as content hashes). |
+| `theme` | `font` (Cinzel, for headings and buttons), `text_font` (Spectral, for sentences), `colours` (`clear`, `edge`, `brass`, `ink`, `muted`, `accent`) and `frames` (`panel`, `slot`, as content hashes). |
 | `widgets` | The builders the built-in tabs use: `label(text, size?, colour?)`, `hint(text)`, `button(name, text, active?, text_size?)`, `wide_button(...)` (the same, taking an equal share of its row), `section(title, children)` (a heading over its contents, no frame), `slot(view, index, active?)`, `box(direction, children, gap?, padding?)`, `row(children, size, gap?)`, `space(grow?, size?)`, `well(child, padding?)`. |
 | `sizes` | The built-in tabs' measurements: `cell`, `cell_gap`, `row`, `label`, `hint`, `gap`. |
 
@@ -206,7 +206,9 @@ cutting it off, but gaps and padding do not shrink, and nothing caps
   row of buttons keeps the buttons at the bottom of the body at any height.
 - **Keep lines short.** A label does not wrap. Cinzel Decorative runs to 0.83
   em a character, so a 16-point heading of twenty characters is 270 pixels.
-  `hint(text)` is the client's own face, and narrower.
+  `hint(text)` is in Spectral, the text face, at about half that. Put your own
+  sentences in `theme.text_font`: a label that names no font is drawn in the
+  theme's, which is Cinzel.
 - **Use the width.** The sheet is always 4:3: side by side fits where stacked
   does not. Life's worn slots are four cells; they fit in a row beside
   anything.
@@ -258,7 +260,7 @@ straight back into your tree.
 ## Licence
 
 Code and the click sound: GPL-3.0-only (`LICENSE`). `AGENTS.md` and
-`stubs/game.lua` are the engine's, MIT. The font is Cinzel Decorative Bold under
-the SIL Open Font License 1.1, included as
-`mods/tiamot_default_ui/fonts/OFL.txt`; see
+`stubs/game.lua` are the engine's, MIT. The fonts are Cinzel Decorative Bold
+and Spectral Regular under the SIL Open Font License 1.1, each licence included
+beside it as `mods/tiamot_default_ui/fonts/OFL-Cinzel.txt` and `OFL-Spectral.txt`; see
 [`docs/artwork.md`](docs/artwork.md).

@@ -354,8 +354,11 @@ fn layout_and_paging() {
         !tree.nodes.iter().any(|n| matches!(n.widget, Widget::Scroll)),
         "the screen scrolls; it should fit its sheet"
     );
-    assert!(tree.nodes.iter().any(|n| n.style.font.as_deref() == Some("tiamot_default_ui:display")));
-    println!("ok  layout: quick access, two pack pages, off-hand, iron frames only, font, no scroll");
+    assert!(tree.nodes.iter().any(|n| n.style.font.as_deref() == Some(DISPLAY_FONT)));
+    // Hints name the text face. Left unnamed they would be drawn in the
+    // theme's font, which is the display face, and read as small capitals.
+    assert!(tree.nodes.iter().any(|n| n.style.font.as_deref() == Some(TEXT_FONT)));
+    println!("ok  layout: quick access, two pack pages, off-hand, iron frames only, both fonts, no scroll");
 }
 
 fn empty_crafter() {
@@ -704,14 +707,19 @@ fn disabled_callbacks() {
 /// Leaf sizes as the client measures them (`client::dialog`), with text
 /// estimated from the font. The widths per character are the WORST measured
 /// over this mod's own strings with Pillow: Cinzel Decorative Bold reaches
-/// 0.83 em (its lowercase is small capitals), a monospace face 0.63. The
-/// client's own face is proportional and narrower, so a pass here is a pass
-/// in the window.
+/// 0.83 em (its lowercase is small capitals), a monospace face 0.63, and
+/// Spectral, the text face, 0.46. Anything but the display font is held to
+/// the monospace figure, which leaves Spectral room for another mod's lines
+/// heavier in capitals, and the client's own face is narrower still, so a
+/// pass here is a pass in the window.
 struct Ruler;
+
+const DISPLAY_FONT: &str = "tiamot_default_ui:display";
+const TEXT_FONT: &str = "tiamot_default_ui:text";
 
 fn text_size(text: &str, style: &ui::Style) -> (i32, i32) {
     let size = f32::from(style.text_size.unwrap_or(14));
-    let per = if style.font.is_some() { 0.84 } else { 0.63 };
+    let per = if style.font.as_deref() == Some(DISPLAY_FONT) { 0.84 } else { 0.63 };
     let chars = text.chars().count() as f32;
     ((chars * size * per).ceil() as i32, (size * 1.3).ceil() as i32)
 }
@@ -1098,7 +1106,10 @@ fn write_preview() {
     let hud = hud_json(&std::fs::read_to_string(dir.join("hud.lua")).unwrap());
     let out = json!({
         "note": "written by tests/native; draw it with tools/render_preview.py",
-        "font": format!("mods/{MOD}/fonts/CinzelDecorative-Bold.ttf"),
+        "fonts": {
+            DISPLAY_FONT: format!("mods/{MOD}/fonts/CinzelDecorative-Bold.ttf"),
+            TEXT_FONT: format!("mods/{MOD}/fonts/Spectral-Regular.ttf"),
+        },
         "textures": textures,
         "screens": screens,
         "hud": hud,

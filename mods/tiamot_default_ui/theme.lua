@@ -1,7 +1,7 @@
 -- SPDX-FileCopyrightText: Iridesium
 -- SPDX-License-Identifier: GPL-3.0-only
 --
--- How the screen looks: the palette, the frames, the display font, and the
+-- How the screen looks: the palette, the frames, the two fonts, and the
 -- few widget builders every tab is made of. Another mod's tab can use the
 -- same builders through the exports, so it matches without copying numbers.
 
@@ -9,8 +9,14 @@ local C = tdi.config
 
 local T = {}
 
+-- Two faces: Cinzel Decorative for what is read at a glance (titles,
+-- headings, buttons) and Spectral, a serif made for screens, for what is read
+-- as sentences. Cinzel's lowercase is small capitals, which is handsome in a
+-- heading and hard going in a line of instructions.
 game.register_font{ id = "display", file = "fonts/CinzelDecorative-Bold.ttf" }
+game.register_font{ id = "text", file = "fonts/Spectral-Regular.ttf" }
 T.font = game.mod_id .. ":display"
+T.text_font = game.mod_id .. ":text"
 
 -- The dialog palette. The HUD keeps its own, brighter copy in hud.lua: a HUD
 -- script cannot load files, and it is drawn over the world, not a dark panel.
@@ -54,11 +60,12 @@ function T.label(text, size, colour)
         style = { font = T.font, text_size = size or 17, text_colour = colour or K.ink } }
 end
 
--- Small print in the client's own face, which is narrower and more legible
--- at hint sizes than the display font.
+-- Small print in the text face, which is narrower and more legible at hint
+-- sizes than the display font. Named rather than left to the client, because
+-- the [theme] puts the display font on everything that names none.
 function T.hint(text)
     return { type = "label", text = text, size = C.hint_height,
-        style = { text_size = 13, text_colour = K.muted } }
+        style = { font = T.text_font, text_size = 13, text_colour = K.muted } }
 end
 
 function T.box(direction, children, gap, padding, style)
