@@ -76,7 +76,7 @@ local function build(player, data)
     local well = T.well(editor, 10)
     well.size = C.editor_width
 
-    local message = T.label(data.message, 15, K.accent)
+    local message = T.text(data.message, 15, K.accent)
     message.size = C.label_height
     local controls = T.box("column", {
         heading("MATERIAL"),

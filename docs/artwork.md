@@ -38,6 +38,7 @@ License, each with its licence beside it:
 The mod registers them as `tiamot_default_ui:display` and `tiamot_default_ui:text`
 and selects them through `style.font`. `[theme] font` is Cinzel and `[theme]
 text_font` is Spectral, so the engine's own screens put headings and buttons
-in Cinzel and chat, text fields and prose in Spectral. Hints name the text face
-themselves, so they read the same on any client. A client that cannot load a
+in Cinzel and chat, text fields and prose in Spectral. A dialog widget that names no
+font is drawn in the client's own face, so the mod's hints and the crafter's
+result line name the text face themselves. A client that cannot load a
 font uses the engine's fallback.

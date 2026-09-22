@@ -938,6 +938,70 @@ fn screens_fit_without_scrolling() {
     println!("ok  every screen fits its sheet without scrolling at 800x600 to 1920x1080");
 }
 
+/// Where node `want` of `tree` was laid, found by walking the tree and its
+/// layout together the way `walk_fit` does.
+fn rect_of(tree: &Tree, at: usize, laid: &ui::Laid, want: usize) -> Option<ui::Rect> {
+    if at == want {
+        return Some(laid.rect);
+    }
+    let first = tree.nodes[at].children.first as usize;
+    laid.children.iter().enumerate().find_map(|(n, child)| rect_of(tree, first + n, child, want))
+}
+
+/// Every line `crafting.lua` can answer, read from its source so a new one is
+/// covered without being listed here, and the longest a craft can report: a
+/// full stack of the most expensive shape.
+fn craft_messages() -> Vec<String> {
+    let source = std::fs::read_to_string(mod_dir().join("crafting.lua")).unwrap();
+    let mut found: Vec<String> = source
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("return \"").or_else(|| line.split("then return \"").nth(1)))
+        .filter_map(|rest| rest.split('"').next())
+        .map(str::to_owned)
+        .collect();
+    let most = game_items_per_stack();
+    found.push(format!("Crafted {most}  /  {} units used", most * 26));
+    assert!(found.len() >= 7, "expected crafting.lua's messages, found {found:?}");
+    found
+}
+
+fn game_items_per_stack() -> u32 {
+    tiamot_core::inventory::ITEMS_PER_STACK
+}
+
+/// The crafter's result line does not wrap, so every message it can show must
+/// fit the width the crafter gives it, at every window size. They are
+/// sentences, so they are in the text face.
+fn craft_messages_fit() {
+    let mut r = Rig::crafter(&[], 90);
+    r.press(ALICE, "stairs");
+    r.press(ALICE, "make");
+    let tree = r.last();
+    let at = tree
+        .nodes
+        .iter()
+        .position(|n| matches!(&n.widget, Widget::Label { text } if text.starts_with("Crafted")))
+        .expect("a craft reports itself");
+    let style = &tree.nodes[at].style;
+    assert_eq!(style.font.as_deref(), Some(TEXT_FONT), "the result line is a sentence");
+    let mut failed = Vec::new();
+    for (w, h) in WINDOWS {
+        let area = room(w, h);
+        let laid = ui::layout(&tree, ui::Rect::new(0, 0, area.0, area.1), &Ruler);
+        let room = rect_of(&tree, 0, &laid, at).expect("the result line was laid out").w;
+        for message in craft_messages() {
+            let needs = text_size(&message, style).0;
+            if needs > room {
+                failed.push(format!("{w}x{h}: {message:?} needs {needs} across and has {room}"));
+            }
+        }
+    }
+    assert!(failed.is_empty(), "craft messages that do not fit:
+  {}", failed.join("
+  "));
+    println!("ok  every craft message fits the crafter at 800x600 to 1920x1080");
+}
+
 // --- The preview's data -----------------------------------------------------------
 //
 // The trees this run built, written out for tools/render_preview.py to draw.
@@ -1231,6 +1295,7 @@ fn main() {
     disabled_callbacks();
     the_look_is_declared();
     screens_fit_without_scrolling();
+    craft_messages_fit();
     hud_check();
     write_preview();
     println!("PASS");

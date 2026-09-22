@@ -71,7 +71,8 @@ function M.friendly(id)
 end
 
 -- Crafts one of `mask` from block `id`, or as many as fit a stack. Returns
--- the line to show the player.
+-- the line to show the player: one short sentence, which must fit the
+-- crafter's column at 800x600 (the native check measures every one).
 --
 -- Take first, then give. The engine's take is partial by design, so a short
 -- take is returned whole, and a give that fails returns what was taken:
@@ -80,26 +81,26 @@ end
 function M.craft(player, id, mask, stack)
     local cost = M.cells(mask)
     if cost == 0 then return "Restore at least one cell first." end
-    if cost == 27 then return "Carve a cell or choose a preset first." end
+    if cost == 27 then return "Carve a cell or pick a preset." end
 
     local entry
     for _, item in ipairs(M.stock(player)) do
         if item.id == id then entry = item; break end
     end
-    if not entry then return "Choose a material with loose units remaining." end
+    if not entry then return "Choose a material you have." end
 
     local count = stack and math.min(game.ITEMS_PER_STACK, entry.units // cost) or 1
-    if count < 1 or entry.units < cost * count then return "Not enough material for this shape." end
+    if count < 1 or entry.units < cost * count then return "Not enough material for that." end
 
     local price = count * cost
     local spent = game.take(player, { material = entry.material, units = price })
     if spent ~= price then
         if spent > 0 then game.give(player, { material = entry.material, units = spent }) end
-        return "Material changed. Nothing crafted; try again."
+        return "Nothing crafted. Try again."
     end
     if not game.give(player, { material = entry.material, shape = mask, count = count }) then
         game.give(player, { material = entry.material, units = spent })
-        return "Could not craft. Material returned."
+        return "No room. Material returned."
     end
     return "Crafted " .. count .. "  /  " .. price .. " units used"
 end

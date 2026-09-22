@@ -60,9 +60,16 @@ function T.label(text, size, colour)
         style = { font = T.font, text_size = size or 17, text_colour = colour or K.ink } }
 end
 
+-- Text-face text: anything read as a sentence, like the crafter's result line.
+-- Named, because a dialog widget that names no font is drawn in the client's
+-- own face, not the theme's.
+function T.text(text, size, colour)
+    return { type = "label", text = text,
+        style = { font = T.text_font, text_size = size or 15, text_colour = colour or K.ink } }
+end
+
 -- Small print in the text face, which is narrower and more legible at hint
--- sizes than the display font. Named rather than left to the client, because
--- the [theme] puts the display font on everything that names none.
+-- sizes than the display font.
 function T.hint(text)
     return { type = "label", text = text, size = C.hint_height,
         style = { font = T.text_font, text_size = 13, text_colour = K.muted } }

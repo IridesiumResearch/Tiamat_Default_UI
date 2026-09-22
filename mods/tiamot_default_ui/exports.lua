@@ -97,6 +97,9 @@ return {
         label = function(text, size, colour)
             return T.label(tostring(text), size, colour)
         end,
+        text = function(text, size, colour)
+            return T.text(tostring(text), size, colour)
+        end,
         hint = function(text)
             return T.hint(tostring(text))
         end,

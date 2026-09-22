@@ -169,7 +169,7 @@ end
 | `open(player, tab?)` | Opens the screen, on a tab if you name one. Answers whether it is open. |
 | `close(player)`, `redraw(player)`, `is_open(player)`, `current_tab(player)` | What they say. `redraw` does nothing when the screen is closed. |
 | `theme` | `font` (Cinzel, for headings and buttons), `text_font` (Spectral, for sentences), `colours` (`clear`, `edge`, `brass`, `ink`, `muted`, `accent`) and `frames` (`panel`, `slot`, as content hashes). |
-| `widgets` | The builders the built-in tabs use: `label(text, size?, colour?)`, `hint(text)`, `button(name, text, active?, text_size?)`, `wide_button(...)` (the same, taking an equal share of its row), `section(title, children)` (a heading over its contents, no frame), `slot(view, index, active?)`, `box(direction, children, gap?, padding?)`, `row(children, size, gap?)`, `space(grow?, size?)`, `well(child, padding?)`. |
+| `widgets` | The builders the built-in tabs use: `label(text, size?, colour?)` (Cinzel), `text(text, size?, colour?)` (the same in Spectral, for sentences), `hint(text)`, `button(name, text, active?, text_size?)`, `wide_button(...)` (the same, taking an equal share of its row), `section(title, children)` (a heading over its contents, no frame), `slot(view, index, active?)`, `box(direction, children, gap?, padding?)`, `row(children, size, gap?)`, `space(grow?, size?)`, `well(child, padding?)`. |
 | `sizes` | The built-in tabs' measurements: `cell`, `cell_gap`, `row`, `label`, `hint`, `gap`. |
 
 `add_tab`, `add_button` and `open` answer `true` or `nil` and a reason; they
@@ -207,8 +207,8 @@ cutting it off, but gaps and padding do not shrink, and nothing caps
 - **Keep lines short.** A label does not wrap. Cinzel Decorative runs to 0.83
   em a character, so a 16-point heading of twenty characters is 270 pixels.
   `hint(text)` is in Spectral, the text face, at about half that. Put your own
-  sentences in `theme.text_font`: a label that names no font is drawn in the
-  theme's, which is Cinzel.
+  sentences in `text(...)` or `theme.text_font`: a label that names no font
+  is drawn in the client's own face, not the theme's.
 - **Use the width.** The sheet is always 4:3: side by side fits where stacked
   does not. Life's worn slots are four cells; they fit in a row beside
   anything.
