@@ -1,8 +1,8 @@
-# Engine asks from Tiamot Default UI
+# Engine asks from Tiamat Default UI
 
-From the `tiamot_default_ui` mod (repo `Tiamot_Default_Inventory`, beside the
+From the `tiamat_default_ui` mod (repo `Tiamat_Default_Inventory`, beside the
 engine). Kept in two places with the same text: in the engine repo as
-`docs/engine-asks/tiamot_default_ui.md`, where the engine agent reads every
+`docs/engine-asks/tiamat_default_ui.md`, where the engine agent reads every
 mod's asks, and in the mod's repo as `docs/engine-asks.md`, so they are on
 GitHub with the mod. Change both together.
 

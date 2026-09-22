@@ -12,7 +12,7 @@ resampled into one equal tile of the new atlas, preserving which region forms
 each corner and rail. Only the runtime rails and center stretch. This prevents
 the original 1254-pixel artwork from producing 418-point corners.
 
-All hashes are BLAKE3 of `tiamot:content:v1` followed by the exact file bytes.
+All hashes are BLAKE3 of `tiamat:content:v1` followed by the exact file bytes.
 Nothing writes one down: `theme.lua` asks `game.content_hash` for the dialog
 frames, and `game.register_picture` answers the hotbar's and puts it in the
 table clients fetch on join, which `hotbar.lua` passes to the HUD script with
@@ -35,7 +35,7 @@ License, each with its licence beside it:
   character over this mod's strings, against Cinzel's 0.83, and its lowercase
   is lowercase where Cinzel's is small capitals.
 
-The mod registers them as `tiamot_default_ui:display` and `tiamot_default_ui:text`
+The mod registers them as `tiamat_default_ui:display` and `tiamat_default_ui:text`
 and selects them through `style.font`. `[theme] font` is Cinzel and `[theme]
 text_font` is Spectral, so the engine's own screens put headings and buttons
 in Cinzel and chat, text fields and prose in Spectral. A dialog widget that names no

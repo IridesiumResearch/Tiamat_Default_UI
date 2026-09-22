@@ -1,7 +1,7 @@
-# Tiamot Default UI
+# Tiamat Default UI
 
 The inventory screen, the shape crafter and the hotbar for the
-[Tiamot](https://github.com/IridesiumResearch/Tiamot-Voxel-Game) voxel engine:
+[Tiamat](https://github.com/IridesiumResearch/Tiamat-Voxel-Game) voxel engine:
 dark iron frames with brass edges, a paged pack, and a crafter that carves loose
 material into slabs, stairs, pillars or any shape you chisel. It replaces the
 engine's reference `core_ui`, so run one or the other.
@@ -29,7 +29,7 @@ client's own font are stand-ins.
 ## Layout
 
 ```
-mods/tiamot_default_ui/          the mod (this is what the engine loads)
+mods/tiamat_default_ui/          the mod (this is what the engine loads)
   mod.toml                       manifest
   init.lua                       load order and the export, nothing else
   config.lua                     slot layout, sizes, tab order, limits on other mods' trees
@@ -55,7 +55,7 @@ this mod with a directory junction so edits here are live, and remove or
 disable `core_ui`, which registers the same key and draws its own hotbar:
 
 ```
-mklink /J <engine>\game\tiamot_default_ui <this repo>\mods\tiamot_default_ui
+mklink /J <engine>\game\tiamat_default_ui <this repo>\mods\tiamat_default_ui
 ```
 
 Validate without launching the game:
@@ -95,7 +95,7 @@ Pillow is all it needs; the layout comes from the JSON, so there is no second
 copy of the mod's screens to keep in step.
 
 For a dedicated server, put the mod folder in the server's `mods_path`, include
-`tiamot_default_ui` in `enabled_mods`, and leave out `core_ui`. Clients
+`tiamat_default_ui` in `enabled_mods`, and leave out `core_ui`. Clients
 fetch its images, font and HUD script through the engine's content system.
 
 ## Playing
@@ -117,23 +117,23 @@ List this mod in your `mod.toml`, usually as optional so your mod still loads
 without it:
 
 ```toml
-optional_depends = ["tiamot_default_ui"]
+optional_depends = ["tiamat_default_ui"]
 ```
 
 Then, anywhere in your load (the exports exist from the first line of your
 `init.lua`):
 
 ```lua
-local ui = game.exports("tiamot_default_ui")
+local ui = game.exports("tiamat_default_ui")
 if ui and ui.version == 1 then
     local w, sizes = ui.widgets, ui.sizes
     ui.add_tab{
-        id = "tiamot_default_life:wardrobe",
+        id = "tiamat_default_life:wardrobe",
         label = "Wardrobe",
         build = function(player)
             local worn = {}
             for index = 1, 4 do
-                worn[index] = w.slot("tiamot_default_life:worn", index)
+                worn[index] = w.slot("tiamat_default_life:worn", index)
             end
             worn[5] = w.space(1)
             return w.box("column", {
@@ -151,7 +151,7 @@ if ui and ui.version == 1 then
         end,
     }
     ui.add_button{
-        id = "tiamot_default_life:sleep",
+        id = "tiamat_default_life:sleep",
         label = "Sleep",
         on_press = function(player) try_sleep(player) end,
     }
@@ -262,5 +262,5 @@ straight back into your tree.
 Code and the click sound: GPL-3.0-only (`LICENSE`). `AGENTS.md` and
 `stubs/game.lua` are the engine's, MIT. The fonts are Cinzel Decorative Bold
 and Spectral Regular under the SIL Open Font License 1.1, each licence included
-beside it as `mods/tiamot_default_ui/fonts/OFL-Cinzel.txt` and `OFL-Spectral.txt`; see
+beside it as `mods/tiamat_default_ui/fonts/OFL-Cinzel.txt` and `OFL-Spectral.txt`; see
 [`docs/artwork.md`](docs/artwork.md).

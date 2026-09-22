@@ -1,7 +1,7 @@
 -- SPDX-FileCopyrightText: Iridesium
 -- SPDX-License-Identifier: GPL-3.0-only
 --
--- Tiamot Default UI: the inventory screen, the shape crafter and the
+-- Tiamat Default UI: the inventory screen, the shape crafter and the
 -- hotbar. This file only decides load order and publishes the exports.
 --
 -- Every file below is loaded exactly once and hangs what it offers off the

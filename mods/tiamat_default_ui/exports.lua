@@ -1,7 +1,7 @@
 -- SPDX-FileCopyrightText: Iridesium
 -- SPDX-License-Identifier: GPL-3.0-only
 --
--- What other mods may call: the table `game.exports("tiamot_default_ui")`
+-- What other mods may call: the table `game.exports("tiamat_default_ui")`
 -- answers to a mod that lists this one in `depends` or `optional_depends`.
 -- The README's "For other mods" section is the contract, with examples.
 --

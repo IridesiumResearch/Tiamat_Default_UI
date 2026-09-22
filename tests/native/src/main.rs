@@ -18,7 +18,7 @@ use std::{
 };
 
 use serde_json::{Value, json};
-use tiamot_core::{
+use tiamat_core::{
     MaterialId,
     content::hash_bytes,
     hud::{self, Carried, Command, HeldTool, Look, State, Value as HudValue, Values},
@@ -33,7 +33,7 @@ use tiamot_core::{
     },
 };
 
-const MOD: &str = "tiamot_default_ui";
+const MOD: &str = "tiamat_default_ui";
 const ALICE: [u8; 32] = [1; 32];
 const BOB: [u8; 32] = [2; 32];
 
@@ -491,10 +491,10 @@ fn carving_does_not_echo() {
 /// A well-behaved mod: a tab, a button on every tab, a button on its tab, and
 /// every refusal the exports promise.
 const ADDON: &str = r#"
-local ui = game.exports("tiamot_default_ui")
+local ui = game.exports("tiamat_default_ui")
 assert(ui and ui.version == 1, "inventory exports missing")
 assert(not pcall(function() ui.version = 2 end), "exports were writable")
-assert(ui.tabs.items == "tiamot_default_ui:items")
+assert(ui.tabs.items == "tiamat_default_ui:items")
 assert(ui.sizes.cell > 0 and ui.widgets.row and ui.widgets.space and ui.widgets.hint, "layout exports missing")
 
 local ok, why = ui.add_tab{ id = "unqualified", label = "X", build = function() end }
@@ -532,13 +532,13 @@ assert(ui.add_button{ id = "addon:sort", label = "Sort", tab = "addon:bag",
 /// Tabs and buttons that break: an error in build, an error in on_press, a
 /// widget the engine refuses, a tree too deep, and a tree that holds itself.
 const ROGUE: &str = r#"
-local ui = game.exports("tiamot_default_ui")
+local ui = game.exports("tiamat_default_ui")
 assert(ui.add_tab{ id = "rogue:boom", label = "Boom", build = function() error("boom") end })
 assert(ui.add_button{ id = "rogue:bang", label = "Bang", on_press = function() error("bang") end })
 "#;
 
 const SLOPPY: &str = r#"
-local ui = game.exports("tiamot_default_ui")
+local ui = game.exports("tiamat_default_ui")
 assert(ui.add_tab{ id = "sloppy:rocket", label = "Rocket",
     build = function() return { type = "rocket" } end })
 assert(ui.add_tab{ id = "sloppy:deep", label = "Deep", build = function()
@@ -670,7 +670,7 @@ fn round_trip_views() {
 /// disabled answers nil and runs nothing, so its tab is dropped at the next
 /// build and its button does nothing.
 const LINGER: &str = r#"
-local ui = game.exports("tiamot_default_ui")
+local ui = game.exports("tiamat_default_ui")
 local presses = 0
 assert(ui.add_tab{ id = "linger:tab", label = "Linger",
     build = function() return ui.widgets.label("presses " .. presses) end })
@@ -714,8 +714,8 @@ fn disabled_callbacks() {
 /// pass here is a pass in the window.
 struct Ruler;
 
-const DISPLAY_FONT: &str = "tiamot_default_ui:display";
-const TEXT_FONT: &str = "tiamot_default_ui:text";
+const DISPLAY_FONT: &str = "tiamat_default_ui:display";
+const TEXT_FONT: &str = "tiamat_default_ui:text";
 
 fn text_size(text: &str, style: &ui::Style) -> (i32, i32) {
     let size = f32::from(style.text_size.unwrap_or(14));
@@ -841,7 +841,7 @@ fn walk_fit(tree: &Tree, at: usize, laid: &ui::Laid, parent: Option<ui::Rect>, f
 /// the "Your tab must fit" advice builds.
 const WARDROBE: &str = r#"
 game.register_view{ id = "worn", slots = 4 }
-local ui = game.exports("tiamot_default_ui")
+local ui = game.exports("tiamat_default_ui")
 local w, sizes = ui.widgets, ui.sizes
 assert(ui.add_tab{
     id = "wardrobe:wardrobe",
@@ -867,7 +867,7 @@ assert(ui.add_button{ id = "wardrobe:sleep", label = "Sleep", on_press = functio
 /// engine reads it, and the HUD reserve that keeps sheets off the hotbar.
 fn the_look_is_declared() {
     let dir = mod_dir();
-    let manifest = tiamot_core::modload::ModManifest::load(&dir).expect("mod.toml loads and validates");
+    let manifest = tiamat_core::modload::ModManifest::load(&dir).expect("mod.toml loads and validates");
     let theme = manifest.theme.expect("mod.toml declares a [theme]");
     for (what, file) in [
         ("font", &theme.font),
@@ -966,7 +966,7 @@ fn craft_messages() -> Vec<String> {
 }
 
 fn game_items_per_stack() -> u32 {
-    tiamot_core::inventory::ITEMS_PER_STACK
+    tiamat_core::inventory::ITEMS_PER_STACK
 }
 
 /// The crafter's result line does not wrap, so every message it can show must

@@ -14,7 +14,7 @@ It reads tests/native/target/preview.json, which the native check writes:
     python tools/render_preview.py
 
 Pillow is the only dependency. The engine checkout must sit beside this
-repository as ../Tiamot, for its monospace font.
+repository as ../Tiamat, for its monospace font.
 """
 import json
 import sys
@@ -23,7 +23,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
-ENGINE = ROOT.parent / 'Tiamot'
+ENGINE = ROOT.parent / 'Tiamat'
 DATA = ROOT / 'tests/native/target/preview.json'
 OUT = ROOT / 'docs/preview.png'
 
@@ -31,7 +31,7 @@ if not DATA.exists():
     sys.exit(f'{DATA} is missing: run the native check first (see this file\'s docstring)')
 data = json.loads(DATA.read_text())
 
-DISPLAY = 'tiamot_default_ui:display'
+DISPLAY = 'tiamat_default_ui:display'
 FONTS = {name: str(ROOT / path) for name, path in data['fonts'].items()}
 MONO = str(ENGINE / 'crates/client/assets/third-party/go-font/Go-Mono.ttf')
 textures = {h: Image.open(ROOT / p).convert('RGB') for h, p in data['textures'].items()}

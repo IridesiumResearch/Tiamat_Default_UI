@@ -18,5 +18,5 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-tiamot-core = { path = "../../../Tiamot/crates/core" }
+tiamat-core = { path = "../../../Tiamot/crates/core" }
 serde_json = "1"

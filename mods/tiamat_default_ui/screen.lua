@@ -149,7 +149,7 @@ end
 
 -- Another mod's tree ----------------------------------------------------------
 
--- The fields a widget and a style may have (see Tiamot.Widget in the stubs).
+-- The fields a widget and a style may have (see Tiamat.Widget in the stubs).
 -- Another mod's tree is copied by these names, not with `pairs`, so only what
 -- the engine documents reaches `update_dialog`, and lists are walked by index
 -- to the first gap, so every copy is bounded.
