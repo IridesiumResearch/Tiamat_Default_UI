@@ -4,7 +4,7 @@
 # A native check that runs the mod through the engine's real script VM, with
 # a fake inventory and dialog host around it, plus small fixture mods that use
 # its exports the way Life or World would. Run from the repository root, with
-# the engine checkout beside it as ../Tiamot:
+# the engine checkout beside it as ../Tiamat:
 #
 #     cargo run --manifest-path tests/native/Cargo.toml
 #
@@ -18,5 +18,5 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-tiamat-core = { path = "../../../Tiamot/crates/core" }
+tiamat-core = { path = "../../../Tiamat/crates/core" }
 serde_json = "1"

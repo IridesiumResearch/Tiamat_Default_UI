@@ -65,7 +65,7 @@ cargo run -p server -- --check-mods game
 ```
 
 Run the mod for real, headless, through the engine's VM with a fake inventory
-around it (the engine checkout must sit beside this repo as `../Tiamot`):
+around it (the engine checkout must sit beside this repo as `../Tiamat`):
 
 ```
 cargo run --manifest-path tests/native/Cargo.toml
