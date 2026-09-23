@@ -4,7 +4,8 @@ The inventory screen, the shape crafter and the hotbar for the
 [Tiamat](https://github.com/IridesiumResearch/Tiamat-Voxel-Game) voxel engine:
 dark iron frames with brass edges, a paged pack, and a crafter that carves loose
 material into slabs, stairs, pillars or any shape you chisel. It replaces the
-engine's reference `core_ui`, so run one or the other.
+engine's reference `core_ui`, and the manifest says so: the engine refuses to
+load the two together.
 
 It is also the look of the engine's own screens: `mod.toml` declares a
 `[theme]`, so the pause screen, the settings pages, the start screen before a
@@ -51,17 +52,21 @@ docs/                            artwork notes and what this mod needs from the 
 ## Running it
 
 The engine reads one mods directory (`mods_path`, default `game/`). Point it at
-this mod with a directory junction so edits here are live, and remove or
-disable `core_ui`, which registers the same key and draws its own hotbar:
+this mod with a directory junction so edits here are live, and turn `core_ui`
+off in the mod list, which registers the same key and draws its own hotbar.
+The manifest declares `conflicts = ["core_ui"]`, so with both enabled the
+server refuses to start rather than drawing two hotbars:
 
 ```
 mklink /J <engine>\game\tiamat_default_ui <this repo>\mods\tiamat_default_ui
 ```
 
-Validate without launching the game:
+Validate without launching the game. The check loads a whole directory and
+`game/` holds `core_ui` as well, so checking it fails on the conflict, which
+is the point. Check this repo's `mods/` instead, from the engine's checkout:
 
 ```
-cargo run -p server -- --check-mods game
+cargo run -p server -- --check-mods ..\Tiamat_Default_Inventory\mods
 ```
 
 Run the mod for real, headless, through the engine's VM with a fake inventory
@@ -95,7 +100,8 @@ Pillow is all it needs; the layout comes from the JSON, so there is no second
 copy of the mod's screens to keep in step.
 
 For a dedicated server, put the mod folder in the server's `mods_path`, include
-`tiamat_default_ui` in `enabled_mods`, and leave out `core_ui`. Clients
+`tiamat_default_ui` in `enabled_mods`, and leave out `core_ui` (the server
+will not start with both). Clients
 fetch its images, font and HUD script through the engine's content system.
 
 ## Playing

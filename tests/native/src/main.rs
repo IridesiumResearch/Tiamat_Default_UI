@@ -1278,6 +1278,28 @@ fn hud_check() {
     println!("ok  hud: registered picture, hash sent on join, drawn slots, UTF-8 trimming, nine selections");
 }
 
+/// `core_ui` is replaced, not joined: the manifest names it in `conflicts`, and
+/// the engine's own resolver refuses a set holding both, so nobody gets two
+/// inventory actions and two hotbars. The engine's `core_ui` is the real one.
+fn core_ui_is_refused_beside_it() {
+    use tiamat_core::modload::{DiscoveredMod, ModManifest, ResolveError, resolve};
+    let found = |dir: PathBuf| DiscoveredMod {
+        manifest: ModManifest::load(&dir).expect("mod.toml loads and validates"),
+        dir,
+    };
+    let ours = found(mod_dir());
+    assert_eq!(ours.manifest.conflicts, ["core_ui"], "the manifest does not name core_ui in conflicts");
+    let core_ui = found(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../Tiamat/game/core_ui"));
+
+    resolve(std::slice::from_ref(&ours)).expect("the mod resolves on its own");
+    let err = resolve(&[ours, core_ui]).expect_err("the engine loaded both");
+    assert!(
+        matches!(&err, ResolveError::Conflict { declarer, found, .. } if declarer == MOD && found == "core_ui"),
+        "refused for the wrong reason: {err}"
+    );
+    println!("ok  core_ui is refused beside it, by the engine's resolver");
+}
+
 fn main() {
     layout_and_paging();
     empty_crafter();
@@ -1294,6 +1316,7 @@ fn main() {
     round_trip_views();
     disabled_callbacks();
     the_look_is_declared();
+    core_ui_is_refused_beside_it();
     screens_fit_without_scrolling();
     craft_messages_fit();
     hud_check();
