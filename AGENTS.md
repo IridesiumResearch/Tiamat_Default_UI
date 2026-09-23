@@ -36,9 +36,26 @@ id = "my_mod"           # letters, digits, underscore. Your namespace.
 name = "My Mod"
 version = "0.1.0"       # semver
 depends = ["core >=0.1"]
+conflicts = ["core_ui"] # mods this one replaces: the engine refuses to load both
 description = "One line."
 license = "MIT"
 ```
+
+`conflicts` is for a mod that replaces another outright — an inventory screen
+beside the reference one is two hotbars, not two features. Between two
+ordinary mods the set is refused: the server does not start and `--check-mods`
+fails, naming both and the way out (`enabled_mods` in the server's config, or
+the mod list when a world is made). **Against one of the engine's own reference
+mods it is different**: the fixture stands aside and yours loads in its place,
+with nothing to disable by hand. It reaches a mod through an alias it
+`provides` as well, and a mod that `provides` a reference mod's id puts it aside
+the same way.
+
+The mods under `game/core_*` carry `reference = true`. It means "a fixture,
+not content": they load before every other mod, lose a tie the lowest id
+would otherwise win (the sky, the cloud deck), step aside for a mod that
+replaces them, and the start screen folds them away. A mod of yours must not
+set it.
 
 Validate without launching the game — this is the fast loop, and it catches
 typos, namespace errors and load-order problems in seconds:
@@ -493,21 +510,37 @@ under. The client draws it by marching a ray through a **field**, not by
 building cubes — which is why a deck can reach the horizon, drift and change
 shape without anything being rebuilt, and why you can fly up through one.
 
+**The sky has four genera, a share each.** `cover` is cumulus, the heaps over
+the floor. `stratocumulus` is a low sheet of rounded cells with grooves of sky
+between them, `altocumulus` a mid-level mackerel sky of small cloudlets in wave
+bands, and `cumulonimbus` towers under spreading anvils, supercells at 1. They
+are numbers rather than a kind so that a front arriving blends one sky into the
+next, and a genus you leave out is none of it — a mod that only ever sent
+`cover` sends exactly the sky it always did.
+
 Two things follow that are worth knowing before you design around them. A
-column of the deck is up to **two** intervals, which gives stepped undersides
-and a tower that mushrooms over its waist, but not a third lobe. And `darkness`
-hangs a dark haze under the deck as well as greying it: that, rather than
-`set_precipitation`, is what makes a storm read from outside it, because
+column of the deck is up to **three** intervals — the low cloud, an anvil over
+it, and a mid-level layer between — which is what lets a mackerel sky sit under
+a storm's anvil and over a heap in one column, and is also the limit: a fourth
+lobe cannot be drawn. And `darkness` hangs a dark haze under the deck as well
+as greying it, darkest at a cloud's base and least on its tops: that, rather
+than `set_precipitation`, is what makes a storm read from outside it, because
 precipitation spawns around the player's own camera and cannot draw a curtain
 of rain over the next valley.
 
 **A storm over the next valley is `map` on `set_clouds`** — a coarse grid of
 cover and darkness laid over the world rather than over the player, sampled
 where each ray of the deck passes, with the plain `cover` still answering
-outside the grid. Up to 16 cells a side; at the 256-block squares a weather mod
+outside the grid — and the three genera per cell beside them, each optional,
+so a storm over the next valley has its sheet and its anvil from the clear
+valley beside it. Up to 16 cells a side; at the 256-block squares a weather mod
 tends to evaluate that is four kilometres, which is further than the deck is
 drawn. Values are shares of one and travel as bytes. Without it, a front cannot
 be watched coming: the sky a player sees is overcast everywhere or nowhere.
+
+The deck shades the ground under it along the sun, in the Classic and
+Beautiful lighting modes, so a drifting sky reads as drifting from the ground.
+Figures are not shaded by it yet.
 
 The player owns the quality: a cloud setting in their own graphics options
 scales the deck's resolution and draw distance, down to off. The server is
