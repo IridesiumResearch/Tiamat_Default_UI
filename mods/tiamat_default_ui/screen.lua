@@ -250,7 +250,7 @@ end
 -- The header: the name on the left, and the buttons other mods put on every
 -- tab at the right end.
 local function header()
-    local row = { T.label("T I A M O T", 16, T.colours.brass), T.space(1) }
+    local row = { T.label("T I A M A T", 16, T.colours.brass), T.space(1) }
     for n, b in ipairs(buttons) do
         if b.tab == nil then row[#row + 1] = T.button("button/" .. n, b.label, false, 15) end
     end
