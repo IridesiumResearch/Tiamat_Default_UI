@@ -264,8 +264,14 @@ straight back into your tree.
 
 ## Licence
 
-Code and the click sound: GPL-3.0-only (`LICENSE`). `AGENTS.md` and
-`stubs/game.lua` are the engine's, MIT. The fonts are Cinzel Decorative Bold
-and Spectral Regular under the SIL Open Font License 1.1, each licence included
-beside it as `mods/tiamat_default_ui/fonts/OFL-Cinzel.txt` and `OFL-Spectral.txt`; see
-[`docs/artwork.md`](docs/artwork.md).
+GPL-3.0-only, © Iridesium, with an Additional Permission under GPLv3 §7 in
+`LICENSE.EXCEPTION` (version 1.0, 24 September 2026): a mod that interacts
+with Tiamat Default UI only through its exports, the engine's scripting API or
+the network protocol is an independent work and may be licensed however
+its author likes. Copying or adapting this mod's code or assets is not
+covered by that permission and stays under the GPL. `docs/exports.md`
+lists the exports; the engine's `MOD-LICENSING.md` has the plain-language
+version and a matrix of what needs which permission. Third-party assets
+are listed in `docs/artwork.md` with their own licences. Contributions are
+taken under the Developer Certificate of Origin with authors retaining
+copyright; see `CONTRIBUTING.md`.

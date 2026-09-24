@@ -42,3 +42,14 @@ in Cinzel and chat, text fields and prose in Spectral. A dialog widget that name
 font is drawn in the client's own face, so the mod's hints and the crafter's
 result line name the text face themselves. A client that cannot load a
 font uses the engine's fallback.
+
+## Register of third-party assets
+
+Every binary file in this repository that is not Iridesium's own work. Anything
+not listed here (the frame textures, the click sound, `docs/preview.png`) is
+Iridesium's and GPL-3.0-only like the code.
+
+| File | Source | Author | Licence | Licence in the tree |
+|---|---|---|---|---|
+| `mods/tiamat_default_ui/fonts/CinzelDecorative-Bold.ttf` | https://github.com/google/fonts/tree/main/ofl/cinzeldecorative | Natanael Gama | SIL Open Font License 1.1, Reserved Font Name "Cinzel" | `mods/tiamat_default_ui/fonts/OFL-Cinzel.txt` |
+| `mods/tiamat_default_ui/fonts/Spectral-Regular.ttf` | https://github.com/google/fonts/tree/main/ofl/spectral | The Spectral Project Authors | SIL Open Font License 1.1 | `mods/tiamat_default_ui/fonts/OFL-Spectral.txt` |

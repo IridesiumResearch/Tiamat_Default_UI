@@ -3,7 +3,8 @@
 --
 -- What other mods may call: the table `game.exports("tiamat_default_ui")`
 -- answers to a mod that lists this one in `depends` or `optional_depends`.
--- The README's "For other mods" section is the contract, with examples.
+-- docs/exports.md lists everything here; change it with this file. The
+-- README's "For other mods" section explains it, with examples.
 --
 -- # Every function here runs in THIS mod's sandbox
 --

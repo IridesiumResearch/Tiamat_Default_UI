@@ -6,7 +6,7 @@
 #
 # Other mods add tabs and buttons to the screen through this mod's exports.
 # They list it in their `optional_depends` and call `game.exports` on it;
-# the README's "For other mods" section is the contract.
+# docs/exports.md lists them and the README's "For other mods" shows how.
 id = "tiamat_default_ui"
 name = "Tiamat Default UI"
 version = "0.4.0"
