@@ -102,6 +102,9 @@ function M.craft(player, id, mask, stack)
         game.give(player, { material = entry.material, units = spent })
         return "No room. Material returned."
     end
+    local body = game.player_entity(player)
+    local e = body and game.entity(body)
+    if e then game.cue{ cue = "craft", pos = e.pos, radius = 12 } end
     return "Crafted " .. count .. "  /  " .. price .. " units used"
 end
 

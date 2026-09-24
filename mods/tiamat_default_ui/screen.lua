@@ -340,6 +340,13 @@ function M.open(player, key)
         send(player, s, false)
     else
         s.open = send(player, s, true) == true
+        -- The engine's ui_close cue has no opening half, so the open is
+        -- raised here — where the player stands, so it is heard nearby too.
+        if s.open then
+            local body = game.player_entity(player)
+            local e = body and game.entity(body)
+            if e then game.cue{ cue = "screen_open", pos = e.pos, radius = 12 } end
+        end
     end
     return s.open
 end

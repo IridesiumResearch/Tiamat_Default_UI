@@ -42,6 +42,19 @@ game.export(load("exports"))
 game.register_hud_script{ file = "hud.lua", reserve = tdi.config.hud_reserve }
 load("hotbar")
 
-game.register_sound{ id = "click", file = "sounds/click.wav", gain = 0.35 }
+-- One-shots cut from the designer's recordings, normalised to about -20 dB
+-- mean with peaks under -1 dB, so the mix lives in the files and `gain`
+-- stays the default.
+game.register_sound{ id = "click", file = "sounds/click.ogg" }
+game.register_sound{ id = "screen_open", file = "sounds/screen_open.ogg", pitch_variance = 0.04 }
+game.register_sound{ id = "craft", file = "sounds/craft.ogg", pitch_variance = 0.05 }
+
+-- The engine's UI cues: every button, tab and slot click, and the sheet
+-- closing, played on the client without waiting for the server.
 game.bind_sound("engine:ui_click", "click")
 game.bind_sound("engine:ui_close", "click")
+
+-- This mod's own cues: screen.lua raises screen_open, crafting.lua raises
+-- craft. A sound pack rebinds either without touching the code.
+game.bind_sound("screen_open", "screen_open")
+game.bind_sound("craft", "craft")

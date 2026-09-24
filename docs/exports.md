@@ -55,7 +55,9 @@ with the names as the tab wrote them.
 | `tiamat_default_ui:inventory` | action (default key E): open and close the screen |
 | `tiamat_default_ui:display` | font, Cinzel Decorative Bold |
 | `tiamat_default_ui:text` | font, Spectral Regular |
-| `tiamat_default_ui:click` | sound |
+| `tiamat_default_ui:click` | sound, on the engine's `ui_click` and `ui_close` cues |
+| `tiamat_default_ui:screen_open` | sound, on this mod's `screen_open` cue |
+| `tiamat_default_ui:craft` | sound, on this mod's `craft` cue |
 | `tiamat_default_ui:hotbar_slot` | picture, the hotbar's slot frame |
 | `tiamat_default_ui:items`, `tiamat_default_ui:shapes` | the built-in tabs |
 

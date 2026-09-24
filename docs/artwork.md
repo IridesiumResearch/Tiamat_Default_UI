@@ -46,8 +46,9 @@ font uses the engine's fallback.
 ## Register of third-party assets
 
 Every binary file in this repository that is not Iridesium's own work. Anything
-not listed here (the frame textures, the click sound, `docs/preview.png`) is
-Iridesium's and GPL-3.0-only like the code.
+not listed here (the frame textures, the sounds, which are cut from the game's
+own recordings in Tiamat Sounds, and `docs/preview.png`) is Iridesium's and
+GPL-3.0-only like the code.
 
 | File | Source | Author | Licence | Licence in the tree |
 |---|---|---|---|---|
