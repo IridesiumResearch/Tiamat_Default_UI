@@ -316,24 +316,17 @@ fn cells(mask: u32) -> u32 {
 
 // --- The inventory's own behaviour ----------------------------------------------
 
-fn layout_and_paging() {
+fn layout() {
     let mut r = Rig::new(&[]);
     r.key(ALICE);
-    let s = slots(&r.last());
-    assert!((1..=28).all(|i| s.contains(&i)), "page one: {s:?}");
-    r.press(ALICE, "next");
-    let s = slots(&r.last());
-    assert!((29..=46).all(|i| s.contains(&i)), "page two: {s:?}");
-    assert!(s.contains(&1) && s.contains(&9) && s.contains(&28) && !s.contains(&10));
-    r.press(ALICE, "previous");
-    assert!(slots(&r.last()).contains(&10));
-    let mut unique = slots(&r.last());
-    unique.sort_unstable();
-    unique.dedup();
-    assert_eq!(unique.len(), slots(&r.last()).len(), "a slot drawn twice");
+    // Twenty-eight fillable slots, the off-hand included, and nothing past it.
+    let mut s = slots(&r.last());
+    s.sort_unstable();
+    assert_eq!(s, (1..=28).collect::<Vec<_>>(), "the inventory is slots 1-28, each once");
+    assert!(!has_name(&r.last(), "next") && !has_name(&r.last(), "previous"), "the pack pages");
     r.event(ALICE, Wire::Closed);
     r.key(ALICE);
-    assert!(slots(&r.last()).contains(&10));
+    assert_eq!(slots(&r.last()).len(), 28);
     // The slots and buttons wear the iron frame. The ornate frame around the
     // whole screen is the theme's, painted by the engine around the sheet, so
     // it must NOT also be in the tree: that was the frame inside a frame.
@@ -358,7 +351,7 @@ fn layout_and_paging() {
     // Hints name the text face. Left unnamed they would be drawn in the
     // theme's font, which is the display face, and read as small capitals.
     assert!(tree.nodes.iter().any(|n| n.style.font.as_deref() == Some(TEXT_FONT)));
-    println!("ok  layout: quick access, two pack pages, off-hand, iron frames only, both fonts, no scroll");
+    println!("ok  layout: 28 slots, quick access, pack, off-hand, iron frames only, both fonts, no scroll");
 }
 
 fn empty_crafter() {
@@ -913,8 +906,6 @@ fn screens_fit_without_scrolling() {
     );
     trees.push(("the README's wardrobe tab", r.last()));
     r.press(ALICE, "tab/items");
-    r.press(ALICE, "next");
-    trees.push(("inventory, page two", r.last()));
     r.press(ALICE, "tab/shapes");
     r.press(ALICE, "stairs");
     trees.push(("crafter", r.last()));
@@ -1307,7 +1298,7 @@ fn core_ui_stands_aside_for_it() {
 }
 
 fn main() {
-    layout_and_paging();
+    layout();
     empty_crafter();
     full_and_empty_masks_do_not_spend();
     presets_conserve_units();

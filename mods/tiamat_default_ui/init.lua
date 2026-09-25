@@ -31,7 +31,7 @@ tdi.theme = load("theme")         -- palette, frames, the display font, widget h
 load("hooks")                     -- one engine registration per hook, many subscribers
 tdi.crafting = load("crafting")   -- loose stock, shape masks and the craft transaction
 tdi.screen = load("screen")       -- sessions, the tab and button registries, the dialog
-load("tab_items")                 -- Inventory: quick access, pack pages, off-hand
+load("tab_items")                 -- Inventory: quick access, pack, off-hand
 load("tab_shapes")                -- Crafting: the shape crafter
 
 -- What other mods may call. One export per mod, so it is built whole first.

@@ -2,7 +2,7 @@
 
 The inventory screen, the shape crafter and the hotbar for the
 [Tiamat](https://github.com/IridesiumResearch/Tiamat-Voxel-Game) voxel engine:
-dark iron frames with brass edges, a paged pack, and a crafter that carves loose
+dark iron frames with brass edges, a 28-slot inventory, and a crafter that carves loose
 material into slabs, stairs, pillars or any shape you chisel. It replaces the
 engine's reference `core_ui`, and the manifest says so: with both installed,
 the engine leaves `core_ui` out and loads this one.
@@ -75,7 +75,7 @@ around it (the engine checkout must sit beside this repo as `../Tiamat`):
 cargo run --manifest-path tests/native/Cargo.toml
 ```
 
-It opens the screen, pages the pack, crafts every preset, drives short takes
+It opens the screen, crafts every preset, drives short takes
 and failed gives to check refunds, runs a material out mid-click, keeps two
 players apart, and draws the HUD with holes in the hotbar. Then it loads
 fixture mods that add tabs and buttons: one that behaves, one whose callbacks
@@ -107,9 +107,8 @@ fetch its images, font and HUD script through the engine's content system.
 
 Press **E** (rebindable) to open and close the screen.
 
-- **Inventory.** Slots 1–9 are quick access, 10–27 the first pack page and 28
-  the off-hand; later pages start at 29. Paging only changes what is shown and
-  never moves an item. Left-click moves a stack, right-click splits or places one.
+- **Inventory.** 28 slots: 1–9 are quick access, 10–27 the pack and 28 the
+  off-hand. Worn slots are separate views and not counted. Left-click moves a stack, right-click splits or places one.
 - **Crafting.** Choose a loose material, then carve: left-click takes a
   cell off, right-click restores one, the arrows turn the shape. Each occupied
   cell costs one unit, so a slab is 9, stairs 18 and a pillar 3. **Craft one**

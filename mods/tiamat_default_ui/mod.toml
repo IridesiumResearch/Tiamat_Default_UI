@@ -1,6 +1,6 @@
 # Tiamat Default UI — the inventory screen, the shape crafter and the hotbar.
 #
-# Dark iron and brass: quick access, paged pack and off-hand on one tab, the
+# Dark iron and brass: quick access, pack and off-hand on one tab, the
 # shape crafter on the other, and a matching hotbar on the HUD. Replaces
 # core_ui, and says so below: the engine leaves core_ui out when both are here.
 #

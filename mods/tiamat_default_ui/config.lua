@@ -5,8 +5,9 @@
 --
 -- Slot numbers are indices into `player:main`, and the first 28 are the
 -- ENGINE's layout: 1-9 are what the number keys select and 28 is what the HUD
--- is handed as the off-hand. Paging here changes what the screen shows, never
--- where an item is stored.
+-- is handed as the off-hand. Those 28 are the whole inventory: the screen draws
+-- nothing past the off-hand. The engine does not cap `player:main` yet (see
+-- docs/engine-asks.md, ask 14), so this is what is shown, not what is stored.
 
 local C = {}
 
@@ -14,14 +15,9 @@ local C = {}
 
 C.hotbar_first = 1
 C.hotbar_count = 9
-C.pack_first = 10              -- page one is 10..27
-C.page_size = 18
-C.offhand_slot = 28
-C.later_pages_first = 29       -- page two onward starts past the off-hand
-C.last_slot = 65535            -- the highest index `player:main` has
-
--- Page one, then as many pages of `page_size` as reach `last_slot`.
-C.last_page = 1 + (C.last_slot - C.later_pages_first + C.page_size) // C.page_size
+C.pack_first = 10              -- the pack is 10..27
+C.pack_count = 18
+C.offhand_slot = 28            -- the last fillable slot
 
 -- Layout, in virtual pixels ---------------------------------------------------
 --
