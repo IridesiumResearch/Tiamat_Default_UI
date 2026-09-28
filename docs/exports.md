@@ -31,7 +31,7 @@ in `depends` or `optional_depends`. Built in `exports.lua`.
 | `is_open(player)` | Whether it is open. |
 | `current_tab(player)` | The qualified id of the selected tab, or `nil`. |
 | `theme` | `font`, `text_font`, `colours` (`clear`, `edge`, `brass`, `ink`, `muted`, `accent`), `frames` (`panel`, `slot`, as content hashes). |
-| `widgets` | Builders: `label`, `text`, `hint`, `button`, `wide_button`, `section`, `slot`, `box`, `row`, `space`, `well`. |
+| `widgets` | Builders: `label`, `text`, `hint`, `button`, `wide_button`, `section`, `slot`, `box`, `row`, `space`, `well`, and `tip(widget, text)`, which answers a copy of any widget with `text` as its tooltip (256 bytes at most, the engine's cap). A `tooltip` written into your own tables passes through as it is. |
 | `sizes` | `cell`, `cell_gap`, `row`, `label`, `hint`, `gap`. |
 
 ## Callbacks it accepts

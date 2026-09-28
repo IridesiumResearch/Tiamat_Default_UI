@@ -5,9 +5,9 @@
 --
 -- Slot numbers are indices into `player:main`, and the first 28 are the
 -- ENGINE's layout: 1-9 are what the number keys select and 28 is what the HUD
--- is handed as the off-hand. Those 28 are the whole inventory: the screen draws
--- nothing past the off-hand. The engine does not cap `player:main` yet (see
--- docs/engine-asks.md, ask 14), so this is what is shown, not what is stored.
+-- is handed as the off-hand. Those 28 are the whole inventory: init.lua fixes
+-- `player:main` at 28 with `game.set_main_slots`, so nothing is stored past
+-- the off-hand either.
 
 local C = {}
 

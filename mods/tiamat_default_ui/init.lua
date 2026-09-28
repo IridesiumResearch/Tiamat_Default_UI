@@ -27,6 +27,11 @@ local function load(name)
 end
 
 tdi.config = load("config")
+
+-- The inventory is the 28 slots the screen draws, and no more: a give or a
+-- pickup that does not fit is refused rather than landing in a slot nobody
+-- can see (engine ask 14).
+game.set_main_slots(tdi.config.offhand_slot)
 tdi.theme = load("theme")         -- palette, frames, the display font, widget helpers
 load("hooks")                     -- one engine registration per hook, many subscribers
 tdi.crafting = load("crafting")   -- loose stock, shape masks and the craft transaction

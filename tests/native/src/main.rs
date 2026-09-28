@@ -48,13 +48,16 @@ struct Bag {
     stacks: HashMap<[u8; 32], Vec<Stack>>,
     takes: Vec<(MaterialId, u32)>,
     gives: Vec<Stack>,
-    fail_give: bool,
+    /// How many units of a shaped stack still fit, as a full `player:main`
+    /// would say; `None` is room for anything.
+    shaped_room: Option<u32>,
     short_take: bool,
 }
 
 /// `player:main` as the engine keeps it, consolidated: one stack per
 /// material, cut and detail. `short_take` takes one unit less than asked and
-/// `fail_give` refuses shaped stacks, to drive the crafter's refund paths.
+/// `shaped_room` lets only so much of a shaped stack in, to drive the
+/// crafter's refund paths.
 #[derive(Default)]
 struct Inventory(Mutex<Bag>);
 
@@ -66,11 +69,20 @@ impl Access for Inventory {
         self.0.lock().unwrap().stacks.get(&player).cloned().unwrap_or_default()
     }
 
-    fn give(&self, player: [u8; 32], _: &str, stack: Stack) -> bool {
+    fn give(&self, player: [u8; 32], _: &str, _: Option<usize>, mut stack: Stack) -> u32 {
         let mut bag = self.0.lock().unwrap();
         bag.gives.push(stack.clone());
-        if stack.shape.is_some() && bag.fail_give {
-            return false;
+        let mut left = 0;
+        if stack.shape.is_some()
+            && let Some(room) = bag.shaped_room.as_mut()
+        {
+            let fits = stack.units.min(*room);
+            *room -= fits;
+            left = stack.units - fits;
+            stack.units = fits;
+            if fits == 0 {
+                return left;
+            }
         }
         let list = bag.stacks.entry(player).or_default();
         match list
@@ -80,10 +92,14 @@ impl Access for Inventory {
             Some(existing) => existing.units += stack.units,
             None => list.push(stack),
         }
-        true
+        left
     }
 
     fn held(&self, _: [u8; 32]) -> Option<Stack> {
+        None
+    }
+
+    fn slot(&self, _: [u8; 32], _: &str, _: usize) -> Option<Stack> {
         None
     }
 
@@ -91,6 +107,7 @@ impl Access for Inventory {
         &self,
         player: [u8; 32],
         _: &str,
+        _: Option<usize>,
         material: MaterialId,
         shape: Option<Shape>,
         detail: Option<&str>,
@@ -231,7 +248,7 @@ impl Rig {
         bag.stacks.insert(who, stacks);
         bag.takes.clear();
         bag.gives.clear();
-        bag.fail_give = false;
+        bag.shaped_room = None;
         bag.short_take = false;
     }
 
@@ -320,6 +337,7 @@ fn layout() {
     let mut r = Rig::new(&[]);
     r.key(ALICE);
     // Twenty-eight fillable slots, the off-hand included, and nothing past it.
+    assert_eq!(r.vm.registered_main_slots(), Some(28), "player:main is not fixed at the 28 the screen draws");
     let mut s = slots(&r.last());
     s.sort_unstable();
     assert_eq!(s, (1..=28).collect::<Vec<_>>(), "the inventory is slots 1-28, each once");
@@ -414,11 +432,25 @@ fn failed_transactions_refund() {
 
     let mut r = Rig::crafter(&[], 90);
     r.press(ALICE, "slab");
-    r.bag(|b| b.fail_give = true);
+    r.bag(|b| b.shaped_room = Some(0));
     r.press(ALICE, "make");
     assert_eq!(r.bag(|b| b.gives[1].units), 9);
     assert_eq!(r.units(ALICE, r.granite), 90);
-    println!("ok  short takes and failed gives return every unit");
+
+    // A full pack takes PART of a stack: what went in comes back out before
+    // the material is refunded, or the slabs that fitted are free.
+    let mut r = Rig::crafter(&[], 90);
+    let granite = r.granite;
+    r.press(ALICE, "slab");
+    r.bag(|b| b.shaped_room = Some(27));
+    r.press(ALICE, "make_stack");
+    assert_eq!(r.units(ALICE, granite), 90, "material was lost or made");
+    assert!(
+        r.bag(|b| b.stacks[&ALICE].iter().all(|s| s.shape.is_none())),
+        "slabs that fitted were kept as well as the refund"
+    );
+    assert!(labels(&r.last()).iter().any(|l| l.contains("No room")), "{:?}", labels(&r.last()));
+    println!("ok  short takes, failed gives and part-fitting gives return every unit");
 }
 
 fn depleted_material_is_not_replaced() {
@@ -507,7 +539,10 @@ assert(ui.add_tab{
         return w.section("BAG", {
             w.label("worn " .. worn .. " hello " .. hello, 17, ui.theme.colours.brass),
             { type = "item_grid", view = "player:main", columns = 4, first = 1, count = 4 },
-            w.button("wear", "Wear"),
+            -- A container, as Craft's workbench names one: the view is a string
+            -- of the other mod's choosing and must reach the engine untouched.
+            { type = "item_grid", view = "addon:bench:1,2,3", columns = 4, first = 1, count = 4 },
+            w.tip(w.button("wear", "Wear"), "Put it on"),
             { type = "checkbox", name = "cosy", text = "Cosy", checked = worn > 0 },
         })
     end,
@@ -570,6 +605,15 @@ fn another_mods_tab_and_buttons() {
         "a theme colour did not survive the round trip"
     );
     assert!(tree.nodes.iter().any(|n| matches!(n.widget, Widget::ItemGrid { .. })));
+    assert!(
+        tree.nodes.iter().any(|n| matches!(&n.widget,
+            Widget::ItemGrid { view, columns: 4, count: 4, .. } if view == "addon:bench:1,2,3")),
+        "a container's item_grid did not reach the engine as the other mod wrote it"
+    );
+    assert!(
+        tree.nodes.iter().any(|n| n.name == format!("{key}/wear") && n.tooltip.as_deref() == Some("Put it on")),
+        "a tooltip was dropped on the way through"
+    );
 
     r.press(ALICE, &format!("{key}/wear"));
     assert!(labels(&r.last()).contains(&"worn 1 hello 0".to_owned()), "{:?}", labels(&r.last()));
@@ -579,7 +623,7 @@ fn another_mods_tab_and_buttons() {
     r.event(ALICE, Wire::Toggled { name: format!("{key}/cosy"), checked: false });
     assert!(labels(&r.last()).contains(&"worn 0 hello 11".to_owned()));
     assert!(r.faults().is_empty(), "{:?}", r.faults());
-    println!("ok  another mod's tab, buttons, events, widgets and theme work, and bad specs are refused");
+    println!("ok  another mod's tab, buttons, events, widgets, a container grid, tooltips and theme work, and bad specs are refused");
 }
 
 fn faults_land_on_the_mod_that_wrote_them() {

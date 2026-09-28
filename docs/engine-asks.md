@@ -29,47 +29,20 @@ rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
 right, 150 by 360"), with sheets narrowing before they overlap it. The mod
 cannot move a sheet itself.
 
-## 15. A tooltip on a widget (2026-09-28)
-
-Asked for by Tiamat Default Progress (its sibling ask U5): a locked research
-node is a button, and it should say what it requires when the pointer rests
-on it, without a status line taking room from the tree.
-
-The mod cannot do it. A dialog node has no field for it, and the engine
-refuses a field it does not know (`dialog widget: unknown field`), so this
-mod cannot even carry one through ahead of the engine. The client already
-draws hover text on its own item slots (`dialog.rs`, the name and the
-blocks and nodes), so the drawing exists; only the field does not.
-
-Smallest change: `tooltip`, an optional string on any node, capped (256
-bytes, say, refused rather than truncated like `detail`), drawn with the
-item slots' own hover text in the theme's `text_font`. On any widget rather
-than only `button`, because a label or a picture wants one just as much and
-a field on `Node` is one field, not one per widget. This mod then adds
-`tooltip` to the fields it copies from another mod's tree (`screen.lua`,
-`WIDGET_FIELDS`), and Progress uses it as it stands.
-
-## 14. A fixed size for `player:main` (2026-09-25)
-
-The inventory is 28 fillable slots: 1-9 quick access, 10-27 the pack, 28 the
-off-hand. Worn slots are views of their own and not counted. The screen now
-draws exactly those 28 and nothing past them.
-
-But `player:main` grows: `game.give` never refuses, and a pickup into a full
-28 lands in slot 29, which no screen shows and no key selects. The item is
-kept but cannot be reached. The mod cannot prevent it: `register_view` is
-fixed-size but cannot replace `player:main`, there is no hook on a pickup, and
-`game.inventory` reports consolidated stacks rather than slots, so a tick
-cannot even find what is in 29 to move it back out.
-
-Smallest change: a size for `player:main`, set once at registration (say
-`game.set_main_slots(28)`, or `slots` on a view that replaces it). At that size
-`give` answers what did not fit, as `container_give` already does, and a
-pickup that does not fit stays on the ground. Nothing else here changes: the
-first 28 keep the engine's meaning.
-
-Landed so far, asserted by the native check except 11 and 12,
+No open asks. Landed so far, asserted by the native check except 11 and 12,
 which are the client's own drawing:
+
+- **15**, a tooltip on any dialog node (engine 2655837, protocol v77, drawn
+  in 663bb70): `tooltip` is among the fields `screen.lua` copies from another
+  mod's tree, and `widgets.tip(widget, text)` answers a copy of any widget
+  with one, because a widget the builders hand back reaches its caller
+  read-only. Asked for Progress's U5; the native check carries one through.
+- **14**, a fixed size for `player:main` (engine 896fb30): `init.lua` calls
+  `game.set_main_slots(28)`, so a full pack refuses a pickup rather than
+  hiding it in slot 29. `game.give` now answers what did not fit, and the
+  crafter takes back any part of a stack that fitted before it refunds the
+  material, so a full pack can neither lose units nor make them; the native
+  check drives that path.
 
 - **13**, `conflicts` in `mod.toml` (engine 57e5d6f), and the engine's mods
   made secondary the same day: a mod that replaces another names it. Against

@@ -154,7 +154,7 @@ end
 -- the engine documents reaches `update_dialog`, and lists are walked by index
 -- to the first gap, so every copy is bounded.
 local WIDGET_FIELDS = {
-    "type", "name", "grow", "size", "cross_size", "direction", "gap", "padding", "align",
+    "type", "name", "tooltip", "grow", "size", "cross_size", "direction", "gap", "padding", "align",
     "text", "initial", "placeholder", "checked", "min", "max", "value", "selected",
     "view", "index", "columns", "first", "count", "permille", "shape", "material",
 }

@@ -108,7 +108,9 @@ fetch its images, font and HUD script through the engine's content system.
 Press **E** (rebindable) to open and close the screen.
 
 - **Inventory.** 28 slots: 1–9 are quick access, 10–27 the pack and 28 the
-  off-hand. Worn slots are separate views and not counted. Left-click moves a stack, right-click splits or places one.
+  off-hand, and the inventory holds no more than that: a full pack refuses a
+  pickup rather than hiding it. Worn slots are separate views and not counted.
+  Left-click moves a stack, right-click splits or places one.
 - **Crafting.** Choose a loose material, then carve: left-click takes a
   cell off, right-click restores one, the arrows turn the shape. Each occupied
   cell costs one unit, so a slab is 9, stairs 18 and a pillar 3. **Craft one**

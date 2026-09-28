@@ -128,6 +128,15 @@ return {
         well = function(child, padding)
             return T.well(child, padding)
         end,
+        -- Any widget, with `text` hovering over it. A copy, because a widget
+        -- these builders hand back reaches the caller read-only.
+        tip = function(widget, text)
+            if type(widget) ~= "table" then return widget end
+            local out = {}
+            for key, value in pairs(widget) do out[key] = value end
+            out.tooltip = text ~= nil and tostring(text) or nil
+            return out
+        end,
     },
 
     -- The sizes the built-in tabs use, so a tab can match them.

@@ -98,7 +98,15 @@ function M.craft(player, id, mask, stack)
         if spent > 0 then game.give(player, { material = entry.material, units = spent }) end
         return "Nothing crafted. Try again."
     end
-    if not game.give(player, { material = entry.material, shape = mask, count = count }) then
+    -- A full pack can take PART of the stack (`player:main` is fixed at 28).
+    -- All or nothing: what went in comes back out, and then the material,
+    -- which fits because the pack is as it was before the take.
+    local gave, left = game.give(player, { material = entry.material, shape = mask, count = count })
+    if not gave then
+        local placed = price - (left or price)
+        if placed > 0 then
+            game.take(player, { material = entry.material, shape = mask, units = placed })
+        end
         game.give(player, { material = entry.material, units = spent })
         return "No room. Material returned."
     end
