@@ -64,6 +64,14 @@ typos, namespace errors and load-order problems in seconds:
 cargo run -p server -- --check-mods <mods-dir>
 ```
 
+A mod to start from is one command away: the engine's template, written out
+with your id, name and licence, the stubs and this file beside it, and checked
+the same way before it is handed over.
+
+```console
+cargo run -p server -- --create-mod my_mod --into <mods-dir>
+```
+
 It prints the mods that loaded, in dependency order, and every block that
 registered. A mod that fails to load is disabled and named; it does not take the
 server down.
@@ -141,19 +149,39 @@ calling one is a hard error. Anything conditional on the world, the player or
 the time of day belongs in a hook, not in registration.
 
 Hooks (`register_on_tick`, `register_on_chat`, `register_on_place`,
-`register_on_dig_complete`, `register_on_use`, `register_on_generate`, …) are
-registered in the window and called for ever after.
+`register_on_dig_start`, `register_on_dig_complete`, `register_on_use`,
+`register_on_generate`, …) are registered in the window and called for ever
+after.
+
+**A tool gate goes on `register_on_dig_start`**, which is asked the tick a dig
+begins: "that needs a pick" reaches the player as they start, not after they
+have waited out the dig. `register_on_dig_complete` is asked at the first chip,
+for a mod that wants the block's state then. And a tools mod's `default` hand
+wins over the engine's reference `core_tools:hand` whatever the ids, so it need
+not `conflicts` the fixture out of the set to be the hand.
 
 **Right-clicking a block with nothing to place is `register_on_use`**, not a
 cancelled dig. Picking fruit, opening a door, pulling a lever: the event has the
 cell, what it is made of and what is in the hand, `game.get_block` works inside
 it, and returning `""` says you handled it. Return `nil` for blocks that are not
 yours, so the next mod — and in the end the engine's own "nothing selected"
-warning — gets its turn. **Right-clicking at nothing** (open sky, or past
-reach) is a use too, heard only by a callback registered with
-`{ anywhere = true }`: it comes with no cell — `e.x` and `e.material` nil — and
-`e.held` as ever, which is how a meal is eaten wherever the player looks. A
-callback that did not ask never sees a use without a cell.
+warning — gets its turn. **A callback registered with `materials = { "campfire_lit",
+... }` is asked first, and only, at those blocks**, ahead of every callback with
+no list — a fire's own mod hears the use before a mod that eats whatever is
+held. `register_on_use` may be called twice per mod, once with `materials` and
+once without: each is its own slot, so a mod can both claim its own blocks and
+still be heard, in its ordinary load-order place, at every block it cannot
+name. **Right-clicking at nothing** (open sky, or past reach) is a use too,
+heard only by a callback registered with `{ anywhere = true }` — the UNLISTED
+one; a listed callback can never be asked about a use with no block, so
+`anywhere` on one is refused at load: it comes with no cell — `e.x` and
+`e.material` nil — and `e.held` as ever, which is how a meal is eaten wherever
+the player looks. A callback that did not ask never sees a use without a
+cell.
+**Right-clicking an entity is `register_on_use_entity`**: the server casts
+the ray, a creature nearer than any block is the target, the event carries it
+with its owner and the hand, and a use nobody handles falls through to the
+block. `game.looking_at` answers `{ entity = id }` in the same case.
 
 **Between events, `game.looking_at(uuid)` says what a player's crosshair is
 on** — the same `{ x, y, z, domain, material }` a use event carries, plus the
@@ -914,11 +942,17 @@ end)
 - **Both answer in UNITS, not true or false.** A container is a fixed size, so a
   partial fit is ordinary: what did not fit was never taken from you. 27 units
   to a block (charter rule 5).
+- **Ask `game.container_holder(name)` before breaking one.** `break_container`
+  answers an empty list for an empty box and for one it refused because somebody
+  has it open, so the holder is how a chest tells "empty" from "in use" and says
+  so instead of vanishing under them. `game/core_chest` is the worked example.
 - **They work while a player has it open.** An open container lives in that
   player's own inventory, and the engine writes into the slots they are looking
   at, so a machine does not stop while its owner watches it.
-- **One callback per hook per mod.** Two `register_on_tick` calls is an error,
-  not a merge — put your machines in one tick function.
+- **One callback per hook per mod — `on_use` is the exception.** Two
+  `register_on_tick` calls is an error, not a merge — put your machines in
+  one tick function. `register_on_use` alone takes two: once with
+  `materials`, once without (see "Right-clicking a block", above).
 
 ---
 
@@ -1404,7 +1438,9 @@ naming the other fluid, so what it MEANS — steam, obsidian, a hiss — is your
 write from there.
 
 **Ground drinks any fluid unless it names one.** `absorbs = { rate, becomes }`
-drinks whatever touches it; `absorbs = { rate, becomes, fluid = "weather:rain" }`
+drinks whatever touches it, and `becomes` may be another mod's block —
+`"tiamat_weather:damp_dirt"` — resolved once every mod has registered, so the
+soil is the world's and the dampness the weather's; `absorbs = { rate, becomes, fluid = "weather:rain" }`
 drinks that fluid alone, so the bed that soaks a puddle of rain does not drain
 the river it is the bed of. A named fluid nobody registered is one nothing
 drinks.
