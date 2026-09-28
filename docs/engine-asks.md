@@ -29,6 +29,26 @@ rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
 right, 150 by 360"), with sheets narrowing before they overlap it. The mod
 cannot move a sheet itself.
 
+## 15. A tooltip on a widget (2026-09-28)
+
+Asked for by Tiamat Default Progress (its sibling ask U5): a locked research
+node is a button, and it should say what it requires when the pointer rests
+on it, without a status line taking room from the tree.
+
+The mod cannot do it. A dialog node has no field for it, and the engine
+refuses a field it does not know (`dialog widget: unknown field`), so this
+mod cannot even carry one through ahead of the engine. The client already
+draws hover text on its own item slots (`dialog.rs`, the name and the
+blocks and nodes), so the drawing exists; only the field does not.
+
+Smallest change: `tooltip`, an optional string on any node, capped (256
+bytes, say, refused rather than truncated like `detail`), drawn with the
+item slots' own hover text in the theme's `text_font`. On any widget rather
+than only `button`, because a label or a picture wants one just as much and
+a field on `Node` is one field, not one per widget. This mod then adds
+`tooltip` to the fields it copies from another mod's tree (`screen.lua`,
+`WIDGET_FIELDS`), and Progress uses it as it stands.
+
 ## 14. A fixed size for `player:main` (2026-09-25)
 
 The inventory is 28 fillable slots: 1-9 quick access, 10-27 the pack, 28 the
