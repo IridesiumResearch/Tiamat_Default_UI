@@ -577,6 +577,54 @@ fn carving_does_not_echo() {
 
 // --- Other mods -----------------------------------------------------------------
 
+/// Presets another mod adds to the shape crafter (Magic U-M1, Science U-S1).
+const PRESETS: &str = r#"
+local ui = game.exports("tiamat_default_ui")
+assert(ui.add_preset{ id = "presets:sun", label = "Sun", mask = 1 + 2 + 4 })
+assert(ui.add_preset{ id = "presets:hidden", label = "Hidden", mask = 16,
+    visible = function() return false end })
+assert(ui.add_preset{ id = "presets:gear", label = "Gear", mask = 16 + 32,
+    visible = function(player) return type(player) == "string" end })
+assert(ui.add_preset{ id = "presets:sun", label = "Again", mask = 1 } == nil, "a duplicate id")
+assert(ui.add_preset{ id = "presets:full", label = "Full", mask = game.OCCUPANCY_FULL } == nil, "a full mask")
+assert(ui.add_preset{ id = "presets:none", label = "None", mask = 0 } == nil, "an empty mask")
+assert(ui.add_preset{ id = "bare", label = "Bare", mask = 1 } == nil, "an unqualified id")
+assert(ui.add_preset{ id = "presets:long", label = "Much too long", mask = 1 } == nil, "a long label")
+assert(ui.add_preset(7) == nil, "a number")
+"#;
+
+/// A full set of added presets, as Magic and Science would give a player who
+/// holds every node: two more rows, and the longest label the cap allows.
+const MANY_PRESETS: &str = r#"
+local ui = game.exports("tiamat_default_ui")
+for n, label in ipairs({ "Gear", "Wheel", "Pipe", "Coil", "Ring", "Gnomon", "Cairn", "Pendulum" }) do
+    assert(ui.add_preset{ id = "many:p" .. n, label = label, mask = n })
+end
+"#;
+
+/// A preset whose `visible` errors: the adding mod is disabled, not this one.
+const BAD_PRESET: &str = r#"
+local ui = game.exports("tiamat_default_ui")
+assert(ui.add_preset{ id = "bad:boom", label = "Boom", mask = 1, visible = function() error("boom") end })
+"#;
+
+fn other_mods_add_presets() {
+    let mut r = Rig::crafter(&[("presets", PRESETS)], 90);
+    let tree = r.last();
+    let sun = button(&tree, "Sun").expect("an added preset");
+    assert!(button(&tree, "Gear").is_some(), "a preset whose visible answers true");
+    assert!(button(&tree, "Hidden").is_none(), "a preset whose visible answers false");
+    r.press(ALICE, &sun);
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| (b.gives[0].shape.map(Shape::occupancy), b.takes[0].1)), (Some(7), 30));
+
+    let r = Rig::crafter(&[("bad", BAD_PRESET)], 90);
+    assert!(button(&r.last(), "Boom").is_none(), "a preset whose visible errors");
+    assert!(r.faults().iter().any(|m| m.as_str() == "bad") && !r.faults().iter().any(|m| m.as_str() == MOD), "the wrong mod was disabled: {:?}", r.faults());
+    assert!(has_editor(&r.last()));
+    println!("ok  other mods' presets: shown when visible, refused when malformed, and an error is theirs");
+}
+
 /// A well-behaved mod: a tab, a button on every tab, a button on its tab, and
 /// every refusal the exports promise.
 const ADDON: &str = r#"
@@ -1008,7 +1056,7 @@ fn the_look_is_declared() {
 
 fn screens_fit_without_scrolling() {
     let mut trees: Vec<(&str, Tree)> = Vec::new();
-    let mut r = Rig::new(&[("addon", ADDON), ("wardrobe", WARDROBE)]);
+    let mut r = Rig::new(&[("addon", ADDON), ("wardrobe", WARDROBE), ("many", MANY_PRESETS)]);
     r.stock(ALICE, vec![Stack::new(r.granite, 124).unwrap(), Stack::new(r.marble, 270).unwrap()]);
     r.key(ALICE);
     trees.push(("inventory", r.last()));
@@ -1416,6 +1464,7 @@ fn core_ui_stands_aside_for_it() {
 fn main() {
     layout();
     the_crafter_is_at_its_block();
+    other_mods_add_presets();
     empty_crafter();
     full_and_empty_masks_do_not_spend();
     presets_conserve_units();

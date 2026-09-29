@@ -46,6 +46,9 @@ C.cell_gap = 4
 C.offhand_gap = 12             -- between slot nine and the off-hand
 C.editor_width = 232           -- the shape editor's well; the controls take the rest
 C.material_row = 30            -- one material in the crafter's list
+C.preset_columns = 4           -- presets a row: the built-in four fill the first
+C.max_added_presets = 8        -- two more rows of other mods' presets, at most
+C.max_preset_label = 8         -- a preset button is a quarter of the column
 
 -- The HUD -------------------------------------------------------------------
 

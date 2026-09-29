@@ -25,6 +25,7 @@ in `depends` or `optional_depends`. Built in `exports.lua`.
 | `tabs` | Qualified ids of the built-in tabs: `tabs.items` (`tiamat_default_ui:items`), `tabs.shapes` (`tiamat_default_ui:shapes`). |
 | `add_tab{ id, label, build, on_event?, order? }` | Adds a tab to the screen. Answers `true` or `nil` and a reason. |
 | `add_button{ id, label, on_press, tab? }` | Adds a button to the header, or to one tab. Answers `true` or `nil` and a reason. |
+| `add_preset{ id, label, mask, visible? }` | Adds a one-click shape to the shape crafter, after Block, Slab, Stairs and Pillar. `id` qualified and unique; `label` 1–8 bytes; `mask` a 27-bit mask (`x + 3*y + 9*z`) with at least one cell and not all 27. `visible(player)` answers `true` to show it to that player; without it, it is always shown. At most eight added presets show at once, in the order they were added. Answers `true` or `nil` and a reason. |
 | `open(player, tab?)` | Opens the screen for a player, on a tab if named. |
 | `close(player)` | Closes it. |
 | `redraw(player)` | Rebuilds it if open. |
@@ -41,7 +42,18 @@ Functions another mod passes in, which run in that mod's sandbox:
 
 - a tab's `build(player)`, answering a widget tree, and `on_event(player,
   event)`, answering `true` to redraw;
-- a button's `on_press(player)`.
+- a button's `on_press(player)`;
+- a preset's `visible(player)`, asked every time the shape crafter is drawn,
+  so keep it to a lookup. Anything but `true` hides the preset, an error
+  included (which disables your mod, as any callback's does).
+
+**What the exports answer is read-only, all the way down**, the `widgets`
+builders' trees included: every table crosses the mod boundary as a view.
+Handed back to this mod, a tab's tree is copied field by field, so a tab never
+notices. **A tree you pass to `game.show_dialog` yourself must be plain
+tables**: the engine reads a view's fields as missing (a colour arrives as
+"no numbers at all"), so deep-copy a builder's widget before showing it in a
+dialog of your own.
 
 A tab's tree is rebuilt into this mod's tables; only the widget and style
 fields the engine documents are kept, every widget `name` is prefixed with the

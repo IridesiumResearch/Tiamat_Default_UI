@@ -181,6 +181,7 @@ end
 | `version` | `1`. Refuse a version you do not know. |
 | `tabs` | Qualified ids of the built-in tabs: `tabs.items`, `tabs.shapes`. |
 | `add_tab{ id, label, build, on_event?, order? }` | A tab after the built-in two. `id` is qualified with your mod (`"my_mod:name"`) and unique; `label` is 1–48 bytes; `order` is an integer, lower is further left (Inventory 10, the shape crafter 20 when at one, default 100). `build(player)` answers the tab's widget tree. `on_event(player, event)` gets every event from your widgets, with `name` as you wrote it, and returns `true` to have the screen redrawn. |
+| `add_preset{ id, label, mask, visible? }` | A one-click shape in the shape crafter, after Block, Slab, Stairs and Pillar: `label` 1–8 bytes, `mask` 27 bits (`x + 3*y + 9*z`), neither empty nor full. `visible(player)` answers `true` to show it, so a preset can wait for a node or a skill; without it, it is always shown. Eight added presets show at most. |
 | `add_button{ id, label, on_press, tab? }` | A button. Without `tab` it sits at the right end of the header on every tab; with a tab id it sits along the bottom of that tab. `on_press(player)` is called, then the screen is redrawn. |
 | `open(player, tab?)` | Opens the screen, on a tab if you name one. Answers whether it is open. |
 | `close(player)`, `redraw(player)`, `is_open(player)`, `current_tab(player)` | What they say. `redraw` does nothing when the screen is closed. |

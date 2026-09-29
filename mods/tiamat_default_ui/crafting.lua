@@ -45,6 +45,45 @@ function M.preset(kind)
     return mask
 end
 
+-- Presets other mods add (`exports.add_preset`), in the order they came.
+-- Each is `{ id, label, mask, visible }`; `visible(player)` runs in the
+-- adding mod's sandbox, so an error there disables that mod, answers nil
+-- here, and hides the preset.
+M.added = {}
+local added_ids = {}
+
+-- Checks and keeps another mod's preset. Never errors: `true`, or `nil` and why.
+function M.add_preset(spec)
+    if type(spec) ~= "table" then return nil, "add_preset takes a table" end
+    local id, label, mask, visible = spec.id, spec.label, spec.mask, spec.visible
+    if type(id) ~= "string" or not id:match("^[%w_]+:[%w_]+$") then
+        return nil, "preset id must be qualified, like \"my_mod:gear\""
+    end
+    if added_ids[id] then return nil, "a preset with id " .. id .. " already exists" end
+    if type(label) ~= "string" or #label < 1 or #label > tdi.config.max_preset_label then
+        return nil, "preset label must be 1 to " .. tdi.config.max_preset_label .. " bytes"
+    end
+    if math.type(mask) ~= "integer" or mask <= 0 or mask >= M.FULL then
+        return nil, "preset mask must be a 27-bit mask with at least one cell and not all 27"
+    end
+    if visible ~= nil and type(visible) ~= "function" then
+        return nil, "preset visible must be a function or nil"
+    end
+    added_ids[id] = true
+    M.added[#M.added + 1] = { id = id, label = label, mask = mask, visible = visible }
+    return true
+end
+
+-- The added presets `player` is shown, at most `most` of them.
+function M.presets_for(player, most)
+    local list = {}
+    for _, preset in ipairs(M.added) do
+        if #list >= most then break end
+        if preset.visible == nil or preset.visible(player) == true then list[#list + 1] = preset end
+    end
+    return list
+end
+
 -- Loose material a player carries, as `{ id, material, units }`, sorted by
 -- block id.
 --

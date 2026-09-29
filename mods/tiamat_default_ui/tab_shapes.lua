@@ -23,6 +23,7 @@ local craft = tdi.crafting
 
 local ROW = "m/"          -- a material row's name: "m/" .. block id
 local PER_CLICK = 10
+local PRESET_TEXT = 12      -- small enough for four eight-letter presets a row at 800x600
 
 -- `data`: the `mask` being carved, the block id the editor shows
 -- (`material`), the last craft (`last`, for a double-click to top up) and
@@ -54,6 +55,32 @@ local function empty(data)
         result_line(data),
         T.space(1),
     })
+end
+
+-- The presets, four to a row: the built-in four, then those other mods added
+-- that this player is shown. Remembers which added preset each button is, so
+-- a press after the list changed still sets the mask the player saw.
+local function presets(player, data)
+    local buttons = {
+        T.wide_button("reset", "Block", false, PRESET_TEXT),
+        T.wide_button("slab", "Slab", false, PRESET_TEXT),
+        T.wide_button("stairs", "Stairs", false, PRESET_TEXT),
+        T.wide_button("pillar", "Pillar", false, PRESET_TEXT),
+    }
+    data.added = {}
+    for n, preset in ipairs(craft.presets_for(player, C.max_added_presets)) do
+        data.added[n] = preset.mask
+        buttons[#buttons + 1] = T.wide_button("preset/" .. n, preset.label, false, PRESET_TEXT)
+    end
+    local rows = {}
+    for first = 1, #buttons, C.preset_columns do
+        local row = {}
+        for n = first, first + C.preset_columns - 1 do
+            row[#row + 1] = buttons[n] or T.space(1)
+        end
+        rows[#rows + 1] = T.row(row, C.row_height, C.cell_gap)
+    end
+    return rows
 end
 
 local function material_row(item, shown)
@@ -101,18 +128,14 @@ local function build(player, data)
     local materials = { type = "scroll", grow = 1, size = 0,
         children = { T.box("column", rows, C.cell_gap) } }
 
-    local right = T.box("column", {
-        T.row({
-            T.wide_button("reset", "Block", false, 14),
-            T.wide_button("slab", "Slab", false, 14),
-            T.wide_button("stairs", "Stairs", false, 14),
-            T.wide_button("pillar", "Pillar", false, 14),
-        }, C.row_height, C.cell_gap),
+    local right = presets(player, data)
+    for _, widget in ipairs({
         heading("MATERIALS"),
         T.hint("Click 10 / right 1 / double: stack"),
         materials,
         result_line(data),
-    })
+    }) do right[#right + 1] = widget end
+    right = T.box("column", right)
     right.grow, right.size = 1, 0
     return T.box("row", { left, right }, 16)
 end
@@ -157,7 +180,13 @@ local function on_event(player, data, event)
         return true
     end
 
-    local mask = name == "reset" and craft.FULL or craft.preset(name)
+    local added = name:match("^preset/(%d+)$")
+    local mask
+    if added then
+        mask = data.added and data.added[tonumber(added)]
+    else
+        mask = name == "reset" and craft.FULL or craft.preset(name)
+    end
     if not mask then return false end
     data.mask, data.message, data.last = mask, "", nil
     return true

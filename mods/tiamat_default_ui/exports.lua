@@ -41,6 +41,13 @@ return {
         return S.add_external_tab(spec)
     end,
 
+    -- `{ id = "my_mod:gear", label = "Gear", mask = integer,
+    --    visible = function(player) -> true to show }`: a one-click shape
+    -- beside Block, Slab, Stairs and Pillar in the shape crafter.
+    add_preset = function(spec)
+        return tdi.crafting.add_preset(spec)
+    end,
+
     -- `{ id = "my_mod:name", label, on_press = function(player), tab = tab id }`.
     -- Without `tab`, the button shows under the tab strip on every tab.
     add_button = function(spec)
