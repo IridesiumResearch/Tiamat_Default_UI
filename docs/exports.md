@@ -31,6 +31,7 @@ in `depends` or `optional_depends`. Built in `exports.lua`.
 | `is_open(player)` | Whether it is open. |
 | `current_tab(player)` | The qualified id of the selected tab, or `nil`. |
 | `theme` | `font`, `text_font`, `colours` (`clear`, `edge`, `brass`, `ink`, `muted`, `accent`), `frames` (`panel`, `slot`, as content hashes). |
+| `shape_crafter` | `"tiamat_default_ui:shape_crafter"`, the block that opens the shape crafter: for a mod with recipes to give one. |
 | `widgets` | Builders: `label`, `text`, `hint`, `button`, `wide_button`, `section`, `slot`, `box`, `row`, `space`, `well`, and `tip(widget, text)`, which answers a copy of any widget with `text` as its tooltip (256 bytes at most, the engine's cap). A `tooltip` written into your own tables passes through as it is. |
 | `sizes` | `cell`, `cell_gap`, `row`, `label`, `hint`, `gap`. |
 
@@ -59,9 +60,11 @@ with the names as the tab wrote them.
 | `tiamat_default_ui:screen_open` | sound, on this mod's `screen_open` cue |
 | `tiamat_default_ui:craft` | sound, on this mod's `craft` cue |
 | `tiamat_default_ui:hotbar_slot` | picture, the hotbar's slot frame |
-| `tiamat_default_ui:items`, `tiamat_default_ui:shapes` | the built-in tabs |
+| `tiamat_default_ui:shape_crafter` | block: right-clicked, opens the screen on the shape crafter's tab |
+| `tiamat_default_ui:items` | the Inventory tab |
+| `tiamat_default_ui:shapes` | the shape crafter's tab, shown only at a shape crafter block |
 
-It also registers a HUD script (`hud.lua`, with a `reserve` of 138) and
+It also registers a use handler for the shape crafter block, a HUD script (`hud.lua`, with a `reserve` of 138) and
 declares a `[theme]` in `mod.toml` for the engine's own screens.
 
 ## Data

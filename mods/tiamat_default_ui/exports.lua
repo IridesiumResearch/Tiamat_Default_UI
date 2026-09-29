@@ -94,6 +94,9 @@ return {
     -- Nothing scrolls: a tab is given the body of the screen and no more, and
     -- the engine shrinks what does not fit. So give rows a height (`row`),
     -- let one thing take the leftover (`space(1)`), and keep lines short.
+    -- The shape crafter block, for a mod that gives a recipe for it.
+    shape_crafter = tdi.crafter_block.block,
+
     widgets = {
         label = function(text, size, colour)
             return T.label(tostring(text), size, colour)

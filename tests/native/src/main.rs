@@ -23,9 +23,11 @@ use tiamat_core::{
     content::hash_bytes,
     hud::{self, Carried, Command, HeldTool, Look, State, Value as HudValue, Values},
     inventory::{Access, Shape, Stack},
-    proto::DialogEvent as Wire,
+    proto::{DialogEvent as Wire, Press},
+    coords::SubNodePos,
     script::{
-        ActionEvent, DialogEvent, EngineVm, HudLimits, HudVm, JoinEvent, LeaveEvent, ScriptVm, VmLimits,
+        ActionEvent, DialogEvent, EngineVm, HudLimits, HudVm, JoinEvent, LeaveEvent, ScriptVm, UseAim, UseEvent,
+        VmLimits,
     },
     ui::{
         self, Tree, Widget,
@@ -170,6 +172,8 @@ struct Rig {
     inventory: Arc<Inventory>,
     granite: MaterialId,
     marble: MaterialId,
+    /// The shape crafter block, which opens the crafter's tab.
+    crafter: MaterialId,
 }
 
 impl Rig {
@@ -210,7 +214,13 @@ impl Rig {
         }
         vm.freeze().unwrap();
         assert!(vm.faulted_mods().is_empty(), "{:?}", vm.faulted_mods());
-        Self { vm, screens, huds, inventory, granite, marble }
+        let crafter = vm
+            .registered_blocks()
+            .into_iter()
+            .find(|(id, _)| id == "tiamat_default_ui:shape_crafter")
+            .expect("the shape crafter block registers")
+            .1;
+        Self { vm, screens, huds, inventory, granite, marble, crafter }
     }
 
     fn key(&mut self, who: [u8; 32]) {
@@ -226,8 +236,18 @@ impl Rig {
         });
     }
 
+    /// Right-clicks a shape crafter block with an empty hand.
+    fn use_crafter(&mut self, who: [u8; 32]) {
+        let aim = UseAim { cell: SubNodePos::new(3, 30, 3), material: self.crafter };
+        let _ = self.vm.use_block(&UseEvent { player: who, domain: "overworld".into(), aim: Some(aim), held: None });
+    }
+
     fn press(&mut self, who: [u8; 32], name: &str) {
-        self.event(who, Wire::Pressed { name: name.into() });
+        self.press_with(who, name, Press::Left);
+    }
+
+    fn press_with(&mut self, who: [u8; 32], name: &str, click: Press) {
+        self.event(who, Wire::Pressed { name: name.into(), click });
     }
 
     fn join(&mut self, who: [u8; 32]) {
@@ -277,8 +297,7 @@ impl Rig {
     fn crafter(fixtures: &[(&str, &str)], units: u32) -> Self {
         let mut rig = Self::new(fixtures);
         rig.stock(ALICE, vec![Stack::new(rig.granite, units).unwrap()]);
-        rig.key(ALICE);
-        rig.press(ALICE, "tab/shapes");
+        rig.use_crafter(ALICE);
         rig
     }
 }
@@ -375,6 +394,29 @@ fn layout() {
     println!("ok  layout: 28 slots, quick access, pack, off-hand, iron frames only, both fonts, no scroll");
 }
 
+/// The shape crafter is a block's: its tab is not in the inventory a player
+/// carries, appears when they use a crafter, and goes when the screen closes.
+fn the_crafter_is_at_its_block() {
+    let mut r = Rig::new(&[]);
+    r.stock(ALICE, vec![Stack::new(r.granite, 90).unwrap()]);
+    r.key(ALICE);
+    assert!(!has_name(&r.last(), "tab/shapes"), "the crafter's tab is in the pack");
+    r.press(ALICE, "tab/shapes");
+    assert!(!has_editor(&r.last()), "a hidden tab was chosen by name");
+    r.use_crafter(ALICE);
+    assert!(has_name(&r.last(), "tab/shapes") && has_editor(&r.last()), "using a crafter opens it");
+    r.press(ALICE, "tab/items");
+    assert!(has_name(&r.last(), "tab/shapes"), "the crafter's tab left while the screen was open");
+    r.key(ALICE);   // E closes it
+    r.key(ALICE);   // and opens the pack again, without the crafter
+    assert!(!has_name(&r.last(), "tab/shapes") && !has_editor(&r.last()));
+    r.use_crafter(ALICE);
+    r.event(ALICE, Wire::Closed);
+    r.key(ALICE);
+    assert!(!has_name(&r.last(), "tab/shapes"), "closing at a crafter left its tab behind");
+    println!("ok  the shape crafter is at its block: used, it opens; closed, it goes");
+}
+
 fn empty_crafter() {
     let mut r = Rig::crafter(&[], 90);
     r.stock(ALICE, vec![]);
@@ -419,7 +461,22 @@ fn a_click_makes_ten_or_what_there_is() {
     r.press(ALICE, "slab");
     r.press(ALICE, GRANITE);
     assert_eq!(r.bag(|b| (b.gives[0].count(), b.takes[0].1)), (3, 27));
-    println!("ok  a click makes ten, or as many as the material allows");
+
+    // Right-click makes one; a double-click tops the ten its first half made
+    // up to a stack, rather than making a whole stack more.
+    let mut r = Rig::crafter(&[], 10_000);
+    r.press(ALICE, "pillar");
+    r.press_with(ALICE, GRANITE, Press::Right);
+    assert_eq!(r.bag(|b| b.gives[0].count()), 1, "a right-click");
+    r.press(ALICE, GRANITE);
+    r.press_with(ALICE, GRANITE, Press::Double);
+    let most = game_items_per_stack();
+    assert_eq!(r.bag(|b| (b.gives[1].count(), b.gives[2].count())), (10, most - 10), "a double-click");
+    // A double-click on its own, with no click before it on that row, is a stack.
+    r.press_with(ALICE, GRANITE, Press::Right);
+    r.press_with(ALICE, GRANITE, Press::Double);
+    assert_eq!(r.bag(|b| b.gives[4].count()), most, "a double-click after a right-click");
+    println!("ok  a click makes ten, a right-click one, a double-click fills a stack");
 }
 
 fn failed_transactions_refund() {
@@ -963,7 +1020,7 @@ fn screens_fit_without_scrolling() {
     );
     trees.push(("the README's wardrobe tab", r.last()));
     r.press(ALICE, "tab/items");
-    r.press(ALICE, "tab/shapes");
+    r.use_crafter(ALICE);
     r.press(ALICE, "stairs");
     trees.push(("crafter", r.last()));
     let bag = button(&r.last(), "Bag").unwrap();
@@ -1206,7 +1263,7 @@ fn write_preview() {
     );
     r.key(ALICE);
     let inventory = r.last();
-    r.press(ALICE, "tab/shapes");
+    r.use_crafter(ALICE);
     r.press(ALICE, "stairs");
     let crafter = r.last();
     // Both tabs laid out by the engine at a mid-size and a small window.
@@ -1358,6 +1415,7 @@ fn core_ui_stands_aside_for_it() {
 
 fn main() {
     layout();
+    the_crafter_is_at_its_block();
     empty_crafter();
     full_and_empty_masks_do_not_spend();
     presets_conserve_units();

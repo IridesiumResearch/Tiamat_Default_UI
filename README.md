@@ -39,7 +39,8 @@ mods/tiamat_default_ui/          the mod (this is what the engine loads)
   crafting.lua                   loose stock, shape masks, the craft transaction
   screen.lua                     sessions, the tab and button registries, the one dialog
   tab_items.lua                  Inventory: quick access, pack pages, off-hand
-  tab_shapes.lua                 Crafting: the shape crafter
+  tab_shapes.lua                 the shape crafter, a station's tab
+  crafter_block.lua              the shape crafter block, which opens it
   exports.lua                    what other mods may call
   hotbar.lua                     the one value the hotbar script is sent
   hud.lua                        the hotbar, run on the client
@@ -111,15 +112,20 @@ Press **E** (rebindable) to open and close the screen.
   off-hand, and the inventory holds no more than that: a full pack refuses a
   pickup rather than hiding it. Worn slots are separate views and not counted.
   Left-click moves a stack, right-click splits or places one.
-- **Crafting.** Carve the cube on the left: left-click takes a cell off,
-  right-click restores one, the arrows turn it, and Block, Slab, Stairs and
-  Pillar start you from a preset. Then click a material in the list on the
-  right to make the shape from it: click for 10, right-click for 1,
-  double-click to fill a stack (right-click and double-click wait on engine
-  ask 17; until then every click makes 10). Each occupied cell costs one unit,
-  so a slab is 9, stairs 18 and a pillar 3, and a click makes as many as the
-  material allows. Named stacks and already-cut stacks are never used as
-  material.
+- **The shape crafter** is a block: place one and right-click it, as you
+  would a crafting table, and the screen opens on its tab. It is not in the
+  inventory you carry. Carve the cube on the left: left-click takes a cell
+  off, right-click restores one, the arrows turn it, and Block, Slab, Stairs
+  and Pillar start you from a preset. Then click a material in the list on
+  the right to make the shape from it: click for 10, right-click for 1,
+  double-click to fill a stack. Each occupied cell costs one unit, so a slab
+  is 9, stairs 18 and a pillar 3, and a click makes as many as the material
+  allows. Named stacks and already-cut stacks are never used as material.
+- **Crafting by hand** — sticks, tinder, a fire striker, a campfire, the
+  workbench — is Tiamat Default Craft's, on its own tab beside Inventory
+  when that mod is loaded. The recipe for a shape crafter is Craft's to give
+  (docs/sibling-asks.md, C1); without Craft, one comes from an operator's
+  give or a creative world.
 
 ## For other mods
 
@@ -174,7 +180,7 @@ end
 |---|---|
 | `version` | `1`. Refuse a version you do not know. |
 | `tabs` | Qualified ids of the built-in tabs: `tabs.items`, `tabs.shapes`. |
-| `add_tab{ id, label, build, on_event?, order? }` | A tab after the built-in two. `id` is qualified with your mod (`"my_mod:name"`) and unique; `label` is 1–48 bytes; `order` is an integer, lower is further left (Inventory 10, Crafting 20, default 100). `build(player)` answers the tab's widget tree. `on_event(player, event)` gets every event from your widgets, with `name` as you wrote it, and returns `true` to have the screen redrawn. |
+| `add_tab{ id, label, build, on_event?, order? }` | A tab after the built-in two. `id` is qualified with your mod (`"my_mod:name"`) and unique; `label` is 1–48 bytes; `order` is an integer, lower is further left (Inventory 10, the shape crafter 20 when at one, default 100). `build(player)` answers the tab's widget tree. `on_event(player, event)` gets every event from your widgets, with `name` as you wrote it, and returns `true` to have the screen redrawn. |
 | `add_button{ id, label, on_press, tab? }` | A button. Without `tab` it sits at the right end of the header on every tab; with a tab id it sits along the bottom of that tab. `on_press(player)` is called, then the screen is redrawn. |
 | `open(player, tab?)` | Opens the screen, on a tab if you name one. Answers whether it is open. |
 | `close(player)`, `redraw(player)`, `is_open(player)`, `current_tab(player)` | What they say. `redraw` does nothing when the screen is closed. |

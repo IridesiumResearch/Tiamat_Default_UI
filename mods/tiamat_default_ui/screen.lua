@@ -27,9 +27,9 @@ local M = {}
 local FORM = "inventory"
 local ACTION = game.mod_id .. ":inventory"
 
-game.register_action{ id = "inventory", default_key = "KeyE", description = "Open inventory / shape crafter" }
+game.register_action{ id = "inventory", default_key = "KeyE", description = "Open inventory" }
 
-local sessions = {}   -- uuid -> { open, tab = key, data = { [key] = table } }
+local sessions = {}   -- uuid -> { open, tab = key, at = station key|nil, data = { [key] = table } }
 local tabs = {}       -- in strip order
 local by_key = {}     -- key -> tab
 local by_id = {}      -- qualified id -> tab
@@ -50,12 +50,16 @@ end
 -- `build(player, data)` returning a widget, `on_event(player, data, event)`
 -- returning whether to redraw, and optionally `fresh()` for a player's first
 -- `data` and `on_enter(player, data)` when the tab is selected.
+--
+-- `station = true` makes it a block's tab: it is in the strip only while the
+-- screen was opened from that block (`open_station`), the way a crafting
+-- table's grid is not in the inventory you carry.
 function M.add_tab(spec)
     serial = serial + 1
     local tab = {
         key = spec.id, id = game.mod_id .. ":" .. spec.id, label = spec.label,
         order = spec.order, seq = serial, build = spec.build, on_event = spec.on_event,
-        fresh = spec.fresh, on_enter = spec.on_enter,
+        fresh = spec.fresh, on_enter = spec.on_enter, station = spec.station,
     }
     tabs[#tabs + 1], by_key[tab.key], by_id[tab.id] = tab, tab, tab
     sort_tabs()
@@ -131,10 +135,16 @@ function M.data(player, tab)
     return s.data[tab.key]
 end
 
+-- Whether `tab` is in this player's strip: not broken, and a station's tab
+-- only at its station.
+local function shown(s, tab)
+    return not tab.broken and (not tab.station or s.at == tab.key)
+end
+
 -- The selected tab, falling back to the first if it has gone.
 local function current(s)
     local tab = by_key[s.tab]
-    if not tab or tab.broken then
+    if not tab or not shown(s, tab) then
         tab = tabs[1]
         s.tab = tab.key
     end
@@ -239,7 +249,7 @@ end
 local function strip(s)
     local row = {}
     for _, tab in ipairs(tabs) do
-        if not tab.broken then
+        if shown(s, tab) then
             row[#row + 1] = T.tab_button("tab/" .. tab.key, tab.label, s.tab == tab.key)
         end
     end
@@ -335,7 +345,7 @@ end
 function M.open(player, key)
     local s = session(player)
     local tab = key and by_key[key]
-    if tab and not tab.broken then choose(player, s, tab) end
+    if tab and shown(s, tab) then choose(player, s, tab) end
     if s.open then
         send(player, s, false)
     else
@@ -351,11 +361,19 @@ function M.open(player, key)
     return s.open
 end
 
+-- Opens the screen at a station: its tab joins the strip and is selected,
+-- until the screen closes.
+function M.open_station(player, key)
+    local s = session(player)
+    s.at = key
+    return M.open(player, key)
+end
+
 function M.close(player)
     local s = sessions[player]
     if s and s.open then
         game.close_dialog{ player = player, form = FORM }
-        s.open = false
+        s.open, s.at = false, nil
     end
 end
 
@@ -403,7 +421,7 @@ tdi.on_dialog(FORM, function(event)
     local s = sessions[player]
     if not s or not s.open then return end
     if event.kind == "closed" then
-        s.open = false
+        s.open, s.at = false, nil
         return
     end
     local name = event.name
@@ -412,7 +430,7 @@ tdi.on_dialog(FORM, function(event)
         local key = name:match("^tab/(.+)$")
         if key then
             local tab = by_key[key]
-            if tab and not tab.broken then
+            if tab and shown(s, tab) then
                 choose(player, s, tab)
                 M.redraw(player)
             end

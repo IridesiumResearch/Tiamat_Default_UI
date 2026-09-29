@@ -1,9 +1,10 @@
 -- SPDX-FileCopyrightText: Iridesium
 -- SPDX-License-Identifier: GPL-3.0-only
 --
--- The Crafting tab, the shape crafter: carve a shape on the left, then click a
--- material on the right to make it from that material. The rules are in
--- crafting.lua; this is the screen.
+-- The shape crafter's tab: carve a shape on the left, then click a material on
+-- the right to make it from that material. The rules are in crafting.lua; this
+-- is the screen. It is a STATION's tab, shown only while the screen was opened
+-- by right-clicking a shape crafter block (crafter_block.lua).
 --
 -- # Clicks, not buttons
 --
@@ -12,9 +13,9 @@
 -- is no dropdown and no craft button, and a queued click can never craft from
 -- a material the player did not point at, because each row names its own.
 --
--- The engine reports which click it was as `event.click` (engine ask 17).
--- Until it does, every press arrives without one and is read as a plain
--- click, so a row crafts ten.
+-- The engine reports which click it was as `event.click` (engine ask 17):
+-- "left", "right" or "double". An engine from before it sends none, which is
+-- read as a plain click, so a row crafts ten.
 
 local C, T = tdi.config, tdi.theme
 local K = T.colours
@@ -164,7 +165,8 @@ end
 
 tdi.screen.add_tab{
     id = "shapes",
-    label = "Crafting",
+    label = "Shape crafter",
+    station = true,
     order = C.tab_order_shapes,
     fresh = fresh,
     on_enter = function(_, data) data.message = "" end,
