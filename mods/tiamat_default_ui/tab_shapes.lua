@@ -1,23 +1,33 @@
 -- SPDX-FileCopyrightText: Iridesium
 -- SPDX-License-Identifier: GPL-3.0-only
 --
--- The Crafting tab, the shape crafter: choose a loose material, carve a shape, craft it.
--- The rules are in crafting.lua; this is the screen and its buttons.
+-- The Crafting tab, the shape crafter: carve a shape on the left, then click a
+-- material on the right to make it from that material. The rules are in
+-- crafting.lua; this is the screen.
+--
+-- # Clicks, not buttons
+--
+-- Every material the player carries is one row, and the row IS the craft:
+-- click for ten, right-click for one, double-click to fill a stack. So there
+-- is no dropdown and no craft button, and a queued click can never craft from
+-- a material the player did not point at, because each row names its own.
+--
+-- The engine reports which click it was as `event.click` (engine ask 17).
+-- Until it does, every press arrives without one and is read as a plain
+-- click, so a row crafts ten.
 
 local C, T = tdi.config, tdi.theme
 local K = T.colours
 local craft = tdi.crafting
 
--- `data`: `mask` being carved, block id of the chosen `material`, `options`
--- (dropdown index -> block id, or false for a placeholder) and `message`.
-local function fresh()
-    return { mask = craft.FULL, material = nil, options = {}, message = "" }
-end
+local ROW = "m/"          -- a material row's name: "m/" .. block id
+local PER_CLICK = 10
 
-local function dropdown(names, selected)
-    return { type = "dropdown", name = "material", options = names, selected = selected,
-        size = C.row_height, style = { background = K.clear, border = K.brass, text_colour = K.ink,
-            font = T.font, text_size = 15, nine_slice = T.frames.slot } }
+-- `data`: the `mask` being carved, the block id the editor shows
+-- (`material`), the last craft (`last`, for a double-click to top up) and
+-- the result `message`.
+local function fresh()
+    return { mask = craft.FULL, material = nil, last = nil, message = "" }
 end
 
 local function heading(text)
@@ -26,102 +36,129 @@ local function heading(text)
     return label
 end
 
--- Nothing to carve: the whole body says so, and nothing else is offered.
-local function empty()
+local function result_line(data)
+    local message = T.text(data.message, 15, K.accent)
+    message.size = C.label_height
+    return message
+end
+
+-- Nothing to carve: the whole body says so, and nothing else is offered but
+-- the result of the craft that used the last of it.
+local function empty(data)
     return T.box("column", {
         T.space(1),
         heading("MATERIAL NEEDED"),
         T.hint("Dig some material to begin shaping."),
         T.hint("Existing shapes and named items are kept intact."),
+        result_line(data),
         T.space(1),
     })
 end
 
--- # One screen, no scrolling
+local function material_row(item, shown)
+    local row = T.button(ROW .. item.id, craft.friendly(item.id) .. "   " .. item.units,
+        item.id == shown, 15)
+    row.size = C.material_row
+    return row
+end
+
+-- # Layout
 --
--- The editor sits in a well on the left, as tall as the body; every control
--- is in the column on the right. The column's rows have fixed heights and a
--- spacer between the options and the craft buttons, so it fills the body
--- exactly and a small window shrinks it rather than pushing Craft off the
--- bottom.
+-- The editor in a well on the left, as tall as the body, with how to carve
+-- under it. On the right the presets, then the materials, which scroll: a
+-- pack can hold twenty-eight of them and the sheet has room for a handful.
+-- Only the list scrolls, so the presets and the result line never move.
 local function build(player, data)
     local list = craft.stock(player)
-    local names, selected, entry = {}, nil, nil
-    data.options = {}
-    for i, item in ipairs(list) do
-        names[i] = craft.friendly(item.id) .. "  -  " .. item.units
-        data.options[i] = item.id
-        if item.id == data.material then selected, entry = i, item end
-    end
-    if not data.material and list[1] then
-        selected, entry, data.material = 1, list[1], list[1].id
-    end
-    if #list == 0 then return empty() end
-    if not entry then
-        -- The chosen material ran out. Require an explicit choice, so a queued
-        -- double-click never silently crafts from the next material instead.
-        table.insert(names, 1, "Choose a material >")
-        table.insert(data.options, 1, false)
-        selected = 1
-    end
+    if #list == 0 then return empty(data) end
 
-    local editor
-    if entry then
-        editor = { type = "shape_editor", name = "cut", shape = data.mask, material = entry.material,
-            grow = 1, size = 0, style = { background = K.clear } }
-    else
-        editor = T.box("column", { T.space(1), T.hint("Choose a material to carve."), T.space(1) })
-        editor.grow, editor.size = 1, 0
+    local shown
+    for _, item in ipairs(list) do
+        if item.id == data.material then shown = item end
     end
+    shown = shown or list[1]
+    data.material = shown.id
+
+    -- The editor owns its live mask, and a redraw echoing an older one would
+    -- undo newer clicks, so nothing here shows a live cost: the rule is fixed
+    -- and printed instead.
+    local editor = { type = "shape_editor", name = "cut", shape = data.mask, material = shown.material,
+        grow = 1, size = 0, style = { background = K.clear } }
     local well = T.well(editor, 10)
-    well.size = C.editor_width
-
-    local message = T.text(data.message, 15, K.accent)
-    message.size = C.label_height
-    local controls = T.box("column", {
-        heading("MATERIAL"),
-        dropdown(names, selected),
-        T.row({ T.wide_button("slab", "Slab"), T.wide_button("stairs", "Stairs") }, C.row_height),
-        T.row({ T.wide_button("pillar", "Pillar"), T.wide_button("reset", "Full block") }, C.row_height),
-        -- The editor owns its live mask, and a redraw echoing an older one
-        -- would undo newer clicks, so there is no live cost here: a fixed
-        -- rule that is always true instead.
-        T.hint("Left: carve   /   Right: restore"),
-        T.hint("Arrows: turn   /   1 unit a cell"),
-        T.space(1),
-        message,
-        T.row({ T.wide_button("make", "Craft one", true, 15),
-            T.wide_button("make_stack", "Craft stack", true, 15) }, C.row_height + 6),
+    well.grow, well.size = 1, 0
+    local left = T.box("column", {
+        well,
+        T.hint("Left cuts / right restores"),
+        T.hint("Arrows turn / a unit a cell"),
     })
-    controls.grow, controls.size = 1, 0
-    return T.box("row", { well, controls }, 16)
+    left.size = C.editor_width
+
+    local rows = {}
+    for i, item in ipairs(list) do
+        rows[i] = material_row(item, shown.id)
+    end
+    local materials = { type = "scroll", grow = 1, size = 0,
+        children = { T.box("column", rows, C.cell_gap) } }
+
+    local right = T.box("column", {
+        T.row({
+            T.wide_button("reset", "Block", false, 14),
+            T.wide_button("slab", "Slab", false, 14),
+            T.wide_button("stairs", "Stairs", false, 14),
+            T.wide_button("pillar", "Pillar", false, 14),
+        }, C.row_height, C.cell_gap),
+        heading("MATERIALS"),
+        T.hint("Click 10 / right 1 / double: stack"),
+        materials,
+        result_line(data),
+    })
+    right.grow, right.size = 1, 0
+    return T.box("row", { left, right }, 16)
+end
+
+-- How many a click asks for. A double-click tops up to a stack: egui reports
+-- the first half of a double-click as a click of its own, which has already
+-- made ten, so the double makes the rest rather than a whole stack more.
+local function wanted(data, id, click)
+    if click == "right" then return 1 end
+    if click == "double" then
+        local last = data.last
+        local made = last and last.id == id and last.mask == data.mask and last.made or 0
+        return game.ITEMS_PER_STACK - made
+    end
+    return PER_CLICK
 end
 
 local function on_event(player, data, event)
     local name = event.name
     if event.kind == "chiselled" and name == "cut" then
-        -- Not redrawn: see the note on the cost line above.
+        -- Not redrawn: see the note on the editor above.
         if math.type(event.shape) == "integer" and event.shape >= 0 and event.shape <= craft.FULL then
-            data.mask, data.message = event.shape, ""
+            data.mask, data.message, data.last = event.shape, "", nil
         end
         return false
     end
-    if event.kind == "chose" and name == "material" then
-        local id = data.options[event.index]
-        if not id then return false end
-        data.material, data.message = id, ""
+    if event.kind ~= "pressed" or type(name) ~= "string" then return false end
+
+    if name:sub(1, #ROW) == ROW then
+        local id = name:sub(#ROW + 1)
+        local want = wanted(data, id, event.click)
+        data.material = id
+        if want < 1 then
+            data.message, data.last = "That stack is full.", nil
+            return true
+        end
+        local message, made = craft.craft(player, id, data.mask, want)
+        data.message = message
+        -- Only a plain click is topped up by the double-click that follows it.
+        data.last = (event.click == nil or event.click == "left")
+            and { id = id, mask = data.mask, made = made } or nil
         return true
     end
-    if event.kind ~= "pressed" then return false end
-    if name == "reset" then
-        data.mask, data.message = craft.FULL, ""
-    elseif craft.preset(name) then
-        data.mask, data.message = craft.preset(name), ""
-    elseif name == "make" or name == "make_stack" then
-        data.message = craft.craft(player, data.material, data.mask, name == "make_stack")
-    else
-        return false
-    end
+
+    local mask = name == "reset" and craft.FULL or craft.preset(name)
+    if not mask then return false end
+    data.mask, data.message, data.last = mask, "", nil
     return true
 end
 

@@ -29,6 +29,27 @@ rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
 right, 150 by 360"), with sheets narrowing before they overlap it. The mod
 cannot move a sheet itself.
 
+## 17. Which click pressed a button (2026-09-29)
+
+The crafter makes a shape from the material row a player clicks: click for
+ten, right-click for one, double-click to fill a stack, as a chest works in
+the game this is modelled on. It is the difference between a screen of rows
+and a screen of rows plus a count picker and two craft buttons.
+
+The mod cannot tell the clicks apart: `"pressed"` carries only `name`. The
+client's button already has egui's response, which knows
+`secondary_clicked` and `double_clicked`; only the event drops it. (An
+`item_slot` reports `click`, but the server moves stacks on it before the
+mod hears, so a slot cannot stand in for a button.)
+
+Smallest change: `click` on `"pressed"`: `"left"`, `"right"`, or `"double"`
+for the second press of a double-click in place of a second `"left"`, since
+egui reports the first half as a click of its own. A right-click on a button
+presses it (today it does nothing). A mod that ignores `click` sees exactly
+what it sees now. `tab_shapes.lua` already reads `event.click`, treating nil
+as a left click, so the crafter works as designed the day this lands and the
+native check can then drive all three.
+
 ## 16. The shape editor draws a black cube (2026-09-28)
 
 Reported from the window: with a material chosen, the Crafting tab's shape

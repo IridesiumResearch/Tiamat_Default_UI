@@ -44,7 +44,8 @@ C.columns = 9                  -- the pack in rows as wide as the hotbar
 C.cell = 52
 C.cell_gap = 4
 C.offhand_gap = 12             -- between slot nine and the off-hand
-C.editor_width = 212           -- the shape editor's well; the controls take the rest
+C.editor_width = 232           -- the shape editor's well; the controls take the rest
+C.material_row = 30            -- one material in the crafter's list
 
 -- The HUD -------------------------------------------------------------------
 

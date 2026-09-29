@@ -35,6 +35,9 @@ use tiamat_core::{
 
 const MOD: &str = "tiamat_default_ui";
 const ALICE: [u8; 32] = [1; 32];
+/// The crafter's rows: clicking one crafts the carved shape from it.
+const GRANITE: &str = "m/fixture:granite";
+const MARBLE: &str = "m/fixture:marble";
 const BOB: [u8; 32] = [2; 32];
 
 fn mod_dir() -> PathBuf {
@@ -383,10 +386,10 @@ fn empty_crafter() {
 
 fn full_and_empty_masks_do_not_spend() {
     let mut r = Rig::crafter(&[], 90);
-    r.press(ALICE, "make");
+    r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
     r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 0 });
-    r.press(ALICE, "make");
+    r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
     println!("ok  a full or empty mask spends nothing");
 }
@@ -395,46 +398,48 @@ fn presets_conserve_units() {
     for (preset, cost) in [("slab", 9), ("stairs", 18), ("pillar", 3)] {
         let mut r = Rig::crafter(&[], 90);
         r.press(ALICE, preset);
-        r.press(ALICE, "make");
+        r.press(ALICE, GRANITE);
+        // A click makes ten, or as many as 90 units allow.
+        let made = (90 / cost).min(10);
         let (take, give) = r.bag(|b| (b.takes[0], b.gives[0].clone()));
-        assert_eq!(take.1, cost, "{preset}");
+        assert_eq!(take.1, cost * made, "{preset}");
         let shape = give.shape.expect("a shaped stack");
-        assert_eq!(give.count(), 1);
+        assert_eq!(give.count(), made);
         assert_eq!(cells(shape.occupancy()) * give.count(), take.1, "{preset} created or destroyed units");
     }
     println!("ok  slab 9, stairs 18, pillar 3, and units are conserved");
 }
 
-fn stacks_are_limited() {
+fn a_click_makes_ten_or_what_there_is() {
     let mut r = Rig::crafter(&[], 100);
     r.press(ALICE, "slab");
-    r.press(ALICE, "make_stack");
-    assert_eq!(r.bag(|b| (b.gives[0].count(), b.takes[0].1)), (11, 99));
-    let mut r = Rig::crafter(&[], 10_000);
-    r.press(ALICE, "pillar");
-    r.press(ALICE, "make_stack");
-    assert_eq!(r.bag(|b| b.gives[0].count()), 90);
-    println!("ok  a stack is limited by material and by ITEMS_PER_STACK");
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| (b.gives[0].count(), b.takes[0].1)), (10, 90));
+    let mut r = Rig::crafter(&[], 30);
+    r.press(ALICE, "slab");
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| (b.gives[0].count(), b.takes[0].1)), (3, 27));
+    println!("ok  a click makes ten, or as many as the material allows");
 }
 
 fn failed_transactions_refund() {
     let mut r = Rig::crafter(&[], 2);
     r.press(ALICE, "pillar");
-    r.press(ALICE, "make");
+    r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()), "crafted with too little material");
 
     let mut r = Rig::crafter(&[], 90);
     r.press(ALICE, "slab");
     r.bag(|b| b.short_take = true);
-    r.press(ALICE, "make");
-    assert_eq!(r.bag(|b| b.gives[0].units), 8);
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| b.gives[0].units), 89);
     assert_eq!(r.units(ALICE, r.granite), 90);
 
     let mut r = Rig::crafter(&[], 90);
     r.press(ALICE, "slab");
     r.bag(|b| b.shaped_room = Some(0));
-    r.press(ALICE, "make");
-    assert_eq!(r.bag(|b| b.gives[1].units), 9);
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| b.gives[1].units), 90);
     assert_eq!(r.units(ALICE, r.granite), 90);
 
     // A full pack takes PART of a stack: what went in comes back out before
@@ -443,7 +448,7 @@ fn failed_transactions_refund() {
     let granite = r.granite;
     r.press(ALICE, "slab");
     r.bag(|b| b.shaped_room = Some(27));
-    r.press(ALICE, "make_stack");
+    r.press(ALICE, GRANITE);
     assert_eq!(r.units(ALICE, granite), 90, "material was lost or made");
     assert!(
         r.bag(|b| b.stacks[&ALICE].iter().all(|s| s.shape.is_none())),
@@ -453,21 +458,23 @@ fn failed_transactions_refund() {
     println!("ok  short takes, failed gives and part-fitting gives return every unit");
 }
 
-fn depleted_material_is_not_replaced() {
+fn a_row_crafts_only_its_own_material() {
     let mut r = Rig::crafter(&[], 9);
     let marble = r.marble;
     r.bag(|b| b.stacks.get_mut(&ALICE).unwrap().push(Stack::new(marble, 90).unwrap()));
     r.press(ALICE, "tab/shapes");
+    assert!(button(&r.last(), "granite   9").is_some() && has_name(&r.last(), MARBLE), "a row per material");
     r.press(ALICE, "slab");
-    r.press(ALICE, "make");
-    r.press(ALICE, "make");
+    r.press(ALICE, GRANITE);
+    // A queued click on a row that has just run out: granite is gone, and the
+    // click must not fall through to the marble below it.
+    r.press(ALICE, GRANITE);
     assert_eq!(r.bag(|b| b.takes.len()), 1, "the second click crafted from another material");
     assert_eq!(r.units(ALICE, marble), 90);
-    // Zero-based on the wire; the mod is told 2, the marble under the placeholder.
-    r.event(ALICE, Wire::Chose { name: "material".into(), index: 1 });
-    r.press(ALICE, "make");
+    assert!(!has_name(&r.last(), GRANITE), "a spent material keeps its row");
+    r.press(ALICE, MARBLE);
     assert_eq!(r.bag(|b| b.takes[1].0), marble);
-    println!("ok  running out never switches material behind the player's back");
+    println!("ok  a row crafts only its own material, and a spent one leaves the list");
 }
 
 fn named_and_shaped_stacks_are_kept() {
@@ -477,7 +484,7 @@ fn named_and_shaped_stacks_are_kept() {
     r.stock(ALICE, vec![named, cut]);
     r.press(ALICE, "reset");
     assert!(!has_editor(&r.last()));
-    r.press(ALICE, "make");
+    r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
     println!("ok  named and already-cut stacks are never material");
 }
@@ -489,8 +496,8 @@ fn players_are_isolated() {
     assert!(slots(&r.last()).contains(&28), "bob should see his own inventory tab");
     r.key(BOB);
     r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 1 << 27 });
-    r.press(ALICE, "make");
-    assert_eq!(r.bag(|b| b.takes[0].1), 9, "an out-of-range mask was adopted");
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| b.takes[0].1), 90, "an out-of-range mask was adopted");
     r.leave(ALICE);
     r.key(ALICE);
     assert!(slots(&r.last()).contains(&10), "leaving should reset to the inventory tab");
@@ -506,8 +513,8 @@ fn carving_does_not_echo() {
     let before = r.sent();
     r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 7 });
     assert_eq!(r.sent(), before, "a carve sent a tree back");
-    r.press(ALICE, "make");
-    assert_eq!(r.bag(|b| (b.gives[0].shape.map(Shape::occupancy), b.takes[0].1)), (Some(7), 3));
+    r.press(ALICE, GRANITE);
+    assert_eq!(r.bag(|b| (b.gives[0].shape.map(Shape::occupancy), b.takes[0].1)), (Some(7), 30));
     println!("ok  carving never echoes a stale mask");
 }
 
@@ -839,7 +846,6 @@ fn walk_fit(tree: &Tree, at: usize, laid: &ui::Laid, parent: Option<ui::Rect>, f
         found.push(format!("{} spills out of its parent: {r:?} in {p:?}", what()));
     }
     match &node.widget {
-        Widget::Scroll => found.push("a scroll box".into()),
         Widget::ItemSlot { index, .. } => {
             if r.w.min(r.h) < 36 {
                 found.push(format!("slot {} is {}x{}, too small to use", index + 1, r.w, r.h));
@@ -868,9 +874,16 @@ fn walk_fit(tree: &Tree, at: usize, laid: &ui::Laid, parent: Option<ui::Rect>, f
         }
         _ => {}
     }
+    // A scroll box's contents may be as tall as they like: that is what the
+    // box is for. Across, they must still fit.
+    let inside = if matches!(node.widget, Widget::Scroll) {
+        ui::Rect::new(r.x, i32::MIN / 4, r.w, i32::MAX / 2)
+    } else {
+        r
+    };
     let first = node.children.first as usize;
     for (n, child) in laid.children.iter().enumerate() {
-        walk_fit(tree, first + n, child, Some(r), found);
+        walk_fit(tree, first + n, child, Some(inside), found);
     }
 }
 
@@ -995,7 +1008,7 @@ fn craft_messages() -> Vec<String> {
         .map(str::to_owned)
         .collect();
     let most = game_items_per_stack();
-    found.push(format!("Crafted {most}  /  {} units used", most * 26));
+    found.push(format!("Made {most} weathered sandstone"));
     assert!(found.len() >= 7, "expected crafting.lua's messages, found {found:?}");
     found
 }
@@ -1008,14 +1021,16 @@ fn game_items_per_stack() -> u32 {
 /// fit the width the crafter gives it, at every window size. They are
 /// sentences, so they are in the text face.
 fn craft_messages_fit() {
-    let mut r = Rig::crafter(&[], 90);
+    // Material left over, so the line is measured in the crafter's column
+    // rather than on the wider empty screen.
+    let mut r = Rig::crafter(&[], 900);
     r.press(ALICE, "stairs");
-    r.press(ALICE, "make");
+    r.press(ALICE, GRANITE);
     let tree = r.last();
     let at = tree
         .nodes
         .iter()
-        .position(|n| matches!(&n.widget, Widget::Label { text } if text.starts_with("Crafted")))
+        .position(|n| matches!(&n.widget, Widget::Label { text } if text.starts_with("Made ")))
         .expect("a craft reports itself");
     let style = &tree.nodes[at].style;
     assert_eq!(style.font.as_deref(), Some(TEXT_FONT), "the result line is a sentence");
@@ -1346,9 +1361,9 @@ fn main() {
     empty_crafter();
     full_and_empty_masks_do_not_spend();
     presets_conserve_units();
-    stacks_are_limited();
+    a_click_makes_ten_or_what_there_is();
     failed_transactions_refund();
-    depleted_material_is_not_replaced();
+    a_row_crafts_only_its_own_material();
     named_and_shaped_stacks_are_kept();
     players_are_isolated();
     carving_does_not_echo();

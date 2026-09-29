@@ -111,11 +111,15 @@ Press **E** (rebindable) to open and close the screen.
   off-hand, and the inventory holds no more than that: a full pack refuses a
   pickup rather than hiding it. Worn slots are separate views and not counted.
   Left-click moves a stack, right-click splits or places one.
-- **Crafting.** Choose a loose material, then carve: left-click takes a
-  cell off, right-click restores one, the arrows turn the shape. Each occupied
-  cell costs one unit, so a slab is 9, stairs 18 and a pillar 3. **Craft one**
-  makes one; **Craft stack** makes as many as the material and a stack allow.
-  Named stacks and already-cut stacks are never used as material.
+- **Crafting.** Carve the cube on the left: left-click takes a cell off,
+  right-click restores one, the arrows turn it, and Block, Slab, Stairs and
+  Pillar start you from a preset. Then click a material in the list on the
+  right to make the shape from it: click for 10, right-click for 1,
+  double-click to fill a stack (right-click and double-click wait on engine
+  ask 17; until then every click makes 10). Each occupied cell costs one unit,
+  so a slab is 9, stairs 18 and a pillar 3, and a click makes as many as the
+  material allows. Named stacks and already-cut stacks are never used as
+  material.
 
 ## For other mods
 
