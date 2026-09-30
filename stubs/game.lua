@@ -42,6 +42,7 @@
 ---@field y integer Chunk y, in chunks.
 ---@field z integer Chunk z, in chunks.
 ---@field seed integer The world seed, exact: its 64 bits as a Lua integer, which reads as a negative number for a seed with its top bit set. Hand it back unchanged to `density:bounds`, `density:at`, `game.rng_stream` and `game.noise_heightmap`; they take the bits, not the sign.
+---@field domain string? In a generator (`register_on_generate`, a domain's `generator`), the id of the domain whose chunk is being filled: `"overworld"` for the overworld's generators, the domain's id for a registered domain (`"my_mod:attic"`), `"template/key"` for an instance (`"my_mod:ship/17"`). A template's generator is one function shared by every instance, so this is how two instances of it differ: derive what they differ in from it (a hash of the string, a lookup in your own table), never from anything that changes between calls. Same seed, domain and chunk give the same chunk, which is all determinism needs. Set in every generation worker's VM as in the main one.
 
 ---A per-column height field. Produced and consumed natively; you cannot read
 ---the individual heights, by design.
@@ -530,6 +531,14 @@ function Stream:next_bool() end
 ---@field start_time number? Where a fresh world's clock starts, 0..1. Defaults to mid-morning: a counter left at zero opens every world at midnight, which is the one hour with no sun in it. Required, and not empty. Need not be sorted — the engine sorts them, because an out-of-order list would make the sky walk backwards partway through the day.
 ---@field cave_fog number[]? `{r, g, b}` (or `{ r =, g =, b = }`), each 0 to 1: the colour distance fog takes where no sky reaches. Defaults to a dark neutral, `{0.05, 0.05, 0.06}`. **One colour for every hour**, not a keyframe's: each fragment's fog is blended by the sky light at it, from the keyframe's `sky` at full sky light to this at none, so the fog down a tunnel is the cave's at noon and at midnight while the daylit ground seen out of its mouth is fogged in the day's colour, in the same frame. Whatever leans the sky's colour — the clock, `set_sky_modifier`, a `flash` — leans only the sky-lit share, so none of them reaches a cave. The last stretch before the fog is total is the sky's whatever the sky light, so the edge of the loaded world is still hidden. Per sky, so a domain's sky has caves of its own colour. A missing channel or one that is not a number is an error; a number out of range is clamped.
 
+---Fields accepted by `game.set_domain_sky` and `game.create_domain`'s `sky`: a
+---`Tiamat.SkySpec` for one domain. See `game.set_domain_sky`.
+---@class Tiamat.DomainSkySpec
+---@field keyframes Tiamat.SkyKeyframe[] Required, not empty.
+---@field cave_fog number[]? As `Tiamat.SkySpec.cave_fog`.
+---@field day_length_ticks integer? Accepted and ignored: the world has one clock.
+---@field start_time number? Accepted and ignored.
+
 ---One moment in your day.
 ---
 ---The client interpolates between keyframes, so a handful describes a whole
@@ -745,6 +754,33 @@ function game.lightning(spec) end
 ---@param precipitation { rate?: number, size?: number, colour?: { r: number, g: number, b: number, a: number }, lifetime?: number, velocity?: { x: number, y: number, z: number }, spread?: number, gravity?: number, collide?: boolean, area?: { x: number, y: number, z: number }, above?: number, ease_ticks?: integer }|nil
 ---@return boolean here
 function game.set_precipitation(player, precipitation) end
+
+---Puts a rainbow in one player's sky, or fades it out with `nil`.
+---
+---**A strength, not a place.** A rainbow is fixed to the sun, not to the world:
+---the client draws a ring 42 degrees round the point opposite its own sun (red
+---outside, violet inside), with a faint secondary at 51 degrees and the colours
+---reversed, at the sky's depth so terrain and the cloud deck stand in front of
+---it. It fades out as the sun climbs towards 42 degrees and is hidden at night
+---and with the sun down; only the half over the horizon is seen. So you say
+---whether there is one and how strongly, and the engine puts it where the sun
+---says.
+---
+---```lua
+---game.set_rainbow(uuid, { intensity = 0.8, ease_ticks = 200 })
+---game.set_rainbow(uuid, nil)
+---```
+---
+---A standing setting, like `game.set_precipitation`: set it as often as you
+---like, it is sent when it changes, and a player who rejoins is told again when
+---you next set it. `intensity` is required, 0 to 1; `ease_ticks` (default 0, at
+---once; up to 2400) is how long the client takes to get there, and `nil` fades
+---out over the last one's. Wrong types and unknown fields are errors naming
+---`set_rainbow`; wrong numbers are clamped.
+---@param player string A player's UUID in hex.
+---@param rainbow { intensity: number, ease_ticks?: integer }|nil
+---@return boolean here
+function game.set_rainbow(player, rainbow) end
 
 ---Registers a tool.
 ---
@@ -2333,7 +2369,8 @@ function game.set_hud(player, values) end
 ---@return boolean operator
 function game.is_operator(player) end
 
----Sets what one player may do: fly, how fast they move, whether they may sprint.
+---Sets what one player may do: fly, how fast they move, whether they may sprint,
+---and how heavy gravity is for them.
 ---
 ---**Replaced whole, every call.** A field you leave out goes back to the
 ---engine's default, so a mod that stops saying `speed` means "no longer
@@ -2355,9 +2392,17 @@ function game.is_operator(player) end
 ---  Turn it off in a world that means its nights; unbinding the keys does not
 ---  work, because anybody can bind them again. Returning the sky to the
 ---  server's hour is never refused.
+---- `gravity` (default `1`) — a multiplier on the gravity that acts on this
+---  player's own body. `0` floats; anything over 4 is clamped to 4; negative
+---  or NaN is an error. It scales only the gravity term, so the jump impulse
+---  is unchanged: a light player jumps higher and falls slower, which is what
+---  low gravity is, and fall damage follows from the motion as it always does.
+---  While the player rides a mount the MOUNT's physics govern and this does not
+---  apply to the pair. Mobs and other entities are untouched; it is yours to
+---  say per player (gravity plating, cavorite soles, a low-gravity body).
 ---
----The client is told and predicts with the same numbers, so a slowed player
----does not rubber-band. An unknown field is an error, so a typo is not a
+---The client is told and predicts with the same numbers, so a slowed or light
+---player does not rubber-band. An unknown field is an error, so a typo is not a
 ---setting you think you made. Forgotten when the player leaves.
 ---
 ---Returns `false` for a player who is not here.
@@ -2368,10 +2413,11 @@ function game.is_operator(player) end
 ---    speed = cold and 0.8 or 1,
 ---    sprint = hunger > 0,
 ---    fly = creative,
+---    gravity = on_moon and 0.17 or 1,
 ---})
 ---```
 ---@param player string The player's UUID, in hex.
----@param abilities { fly: boolean?, speed: number?, sprint: boolean?, wind_sky: boolean? }|nil
+---@param abilities { fly: boolean?, speed: number?, sprint: boolean?, wind_sky: boolean?, gravity: number? }|nil
 ---@return boolean told
 function game.set_player_abilities(player, abilities) end
 
@@ -3123,9 +3169,52 @@ function game.register_domain(spec) end
 ---```
 ---@param template string
 ---@param key string
----@param options { position: { x: number, y: number, z: number }? }?
+---`options.sky` is a sky for the new instance, what `game.set_domain_sky` takes,
+---set on the same terms as `position`: when the instance is new, and kept with
+---it. Making it again changes nothing. A mistake in it is an error and nothing
+---is made.
+---@param options { position: { x: number, y: number, z: number }?, sky: Tiamat.DomainSkySpec? }?
 ---@return string? id
 function game.create_domain(template, key, options) end
+
+---The sky a domain has, set while the world runs: a woven world's own dawn
+---without a per-player overlay.
+---
+---`spec` is the table `game.register_sky` takes, less what cannot differ
+---between domains: `keyframes` (required, not empty) and `cave_fog` are the
+---domain's own. `day_length_ticks` and `start_time` are accepted and ignored,
+---so a sky written for `register_sky` can be handed here unedited, because the
+---world has ONE clock (the one a registered sky declared) and every domain's
+---keyframes are read against it. `domain` is refused; the domain is the first
+---argument. **The world's day comes from `register_sky`**: a world that
+---registered no sky has no clock, and a sky set here is then held, not
+---cycled.
+---
+---`nil` returns the domain to the sky its registration gives it: its own
+---`register_sky{ domain }`, else (for an instance) its template's, else the sky
+---for every domain not named.
+---
+---**Every player in the domain has it now**, and one who arrives later is sent
+---it on arrival. It is kept with the world and comes back after a restart, and
+---`game.destroy_domain` removes it with the instance. Any live domain takes
+---one: an instance, a registered domain, `"overworld"`.
+---
+---Returns `true` when the domain exists and the sky was set (or cleared), and
+---`false` for an id nobody made and for a template, which is not a domain. A
+---malformed `spec` is an error naming `set_domain_sky`.
+---
+---```lua
+---local id = game.create_domain("my_mod:world", "17")
+---game.set_domain_sky(id, { keyframes = {
+---    { time = 0.0, sky = {0.2, 0.0, 0.1}, sun = {0.6, 0.2, 0.2}, intensity = 0.3 },
+---    { time = 0.5, sky = {0.9, 0.5, 0.3}, sun = {1, 0.8, 0.6}, intensity = 1.0 },
+---}, cave_fog = {0.1, 0.0, 0.05} })
+---game.set_domain_sky(id, nil) -- and back to the template's
+---```
+---@param id string
+---@param spec Tiamat.DomainSkySpec?
+---@return boolean
+function game.set_domain_sky(id, spec) end
 
 ---Removes an instance and everything stored in it. Permanent.
 ---

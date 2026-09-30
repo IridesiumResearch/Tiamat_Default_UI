@@ -1332,6 +1332,10 @@ game.register_domain{ id = "quarry", generator = function(buf, pos)
     buf:fill_below_heightmap(heights, stone)
 end }
 
+-- `pos.domain` is the domain being filled: "overworld", "my_mod:quarry", or
+-- "my_mod:ship/17" for an instance of a template. A template's generator is
+-- shared by all its instances, so this is how they come out different.
+
 game.register_on_chat(function(event)
     if event.text ~= "quarry" then
         return
@@ -1441,10 +1445,13 @@ slower one; this is the multiplier that makes a cow amble rather than march at
 a player's walk. The same number, and the same code, that slows a player.
 
 **A player's movement is yours to limit, and flight yours to grant.**
-`game.set_player_abilities(uuid, { fly, speed, sprint, wind_sky })` — a Creative
+`game.set_player_abilities(uuid, { fly, speed, sprint, wind_sky, gravity })` — a Creative
 world where everybody flies, cold that slows, hunger that stops a sprint, and
 `wind_sky = false` for a world that means its nights (the engine's sky keys
-scrub the client's own clock, which lights a player's night for free). Replaced
+scrub the client's own clock, which lights a player's night for free), and
+`gravity` (a multiplier, `0.17` for a moon, `0` floats, over 4 is clamped; the
+jump impulse is unchanged so a light player jumps higher; a rider is governed
+by the mount's physics instead). Replaced
 whole each call (a field left out is the default again), `fly` is OR-ed with the
 operator list, and the client predicts with the same numbers so nobody
 rubber-bands. Do not try this with `game.set_entity` on a player's body: the
@@ -1533,7 +1540,11 @@ star a player sees is the star `game.star_in_view(uuid)` names. A domain
 registered with a `position`, or an instance made with
 `game.create_domain(template, key, { position = ... })`, sees the sky from
 there; `register_sky{ domain = ... }` gives it colours of its own, sent to the
-client when a player arrives. Travel is yours: which star has a surface, what
+client when a player arrives. `game.set_domain_sky(id, spec)` (or
+`create_domain`'s `options.sky`) sets one at run time, for an instance or any live
+domain: everyone in it has it now, a later arrival on arrival, it is kept across
+restarts and leaves with `destroy_domain`, and `nil` gives the registered sky
+back. The day's length is still the world's one clock. Travel is yours: which star has a surface, what
 takes you there and what brings you back is a mod's rule, and `game/core_space`
 is the smallest one that works.
 
@@ -1559,6 +1570,12 @@ be seen every tick is something to make smaller — and rain is not a burst at
 all: `game.set_precipitation(uuid, { rate, size, colour, velocity, area, above,
 ease_ticks })` sends the shape once and the player's client spawns it around
 its own camera until you send `nil`.
+
+**A rainbow is a strength, not a place.** `game.set_rainbow(uuid, { intensity,
+ease_ticks? })` (or `nil`) says whether and how strongly; the client draws the
+bow 42 degrees round the point opposite the sun, at the sky's depth, fading out
+as the sun climbs and hidden at night. Deciding when one is owed, after rain, by
+day, under open sky, is yours.
 
 **A mod reaches another mod only through what it exports.** Each mod gets a
 fresh sandbox and `game.storage` is private; `game.export` / `game.exports`
