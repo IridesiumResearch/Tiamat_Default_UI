@@ -362,18 +362,54 @@ function M.open(player, key)
 end
 
 -- Opens the screen at a station: its tab joins the strip and is selected,
--- until the screen closes.
-function M.open_station(player, key)
+-- until the screen closes. `where` is the station's block,
+-- `{ x, y, z, domain, block }` in blocks with its block id: the screen closes
+-- by itself when the player walks away from it or it is broken, as a
+-- crafting table's does.
+function M.open_station(player, key, where)
     local s = session(player)
-    s.at = key
+    s.at, s.where = key, where
     return M.open(player, key)
 end
+
+-- Whether a player at a station has left it: the block is no longer there
+-- (broken, or its chunk gone), or they are out of reach of it. A player
+-- whose body cannot be found is left alone rather than guessed about.
+local function left_station(player, where)
+    local at = game.get_block{ x = where.x, y = where.y, z = where.z, domain = where.domain }
+    local here = false
+    if at and at.material and game.block_of(at.material) == where.block then here = true end
+    if at and at.cells then
+        for i = 1, 27 do
+            if at.cells[i] ~= 0 and game.block_of(at.cells[i]) == where.block then here = true end
+        end
+    end
+    if not here then return true end
+    local body = game.player_entity(player)
+    local e = body and game.entity(body)
+    if not e then return false end
+    local dx = e.pos.x - (where.x + 0.5)
+    local dy = e.pos.y - (where.y + 0.5)
+    local dz = e.pos.z - (where.z + 0.5)
+    local reach = tdi.config.station_reach
+    return dx * dx + dy * dy + dz * dz > reach * reach
+end
+
+local waited = 0
+tdi.on_tick(function(dt)
+    waited = waited + dt
+    if waited < tdi.config.station_check then return end
+    waited = 0
+    for player, s in pairs(sessions) do
+        if s.open and s.where and left_station(player, s.where) then M.close(player) end
+    end
+end)
 
 function M.close(player)
     local s = sessions[player]
     if s and s.open then
         game.close_dialog{ player = player, form = FORM }
-        s.open, s.at = false, nil
+        s.open, s.at, s.where = false, nil, nil
     end
 end
 
@@ -421,7 +457,7 @@ tdi.on_dialog(FORM, function(event)
     local s = sessions[player]
     if not s or not s.open then return end
     if event.kind == "closed" then
-        s.open, s.at = false, nil
+        s.open, s.at, s.where = false, nil, nil
         return
     end
     local name = event.name

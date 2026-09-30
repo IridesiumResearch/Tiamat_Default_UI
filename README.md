@@ -120,7 +120,13 @@ Press **E** (rebindable) to open and close the screen.
   the right to make the shape from it: click for 10, right-click for 1,
   double-click to fill a stack. Each occupied cell costs one unit, so a slab
   is 9, stairs 18 and a pillar 3, and a click makes as many as the material
-  allows. Named stacks and already-cut stacks are never used as material.
+  allows; the line under the list says what one costs as you carve. Named
+  stacks and already-cut stacks are never used as material.
+  Tick **Mix** to carve in several materials: a material row is then the
+  brush a right-click paints with, and **Make** (click 10, right-click 1,
+  double-click a stack) takes one unit of each cell's own material an item,
+  or nothing if any runs short. The screen closes by itself when you walk
+  away from the crafter or it is broken.
 - **Crafting by hand** — sticks, tinder, a fire striker, a campfire, the
   workbench — is Tiamat Default Craft's, on its own tab beside Inventory
   when that mod is loaded. The recipe for a shape crafter is Craft's to give

@@ -240,6 +240,30 @@ impl Rig {
         let _ = self.vm.use_block(&UseEvent { player: who, domain: "overworld".into(), aim: Some(aim), held: None });
     }
 
+    /// The shape editor's name in the last tree: it changes whenever the
+    /// crafter sets a shape on purpose.
+    fn editor(&self) -> String {
+        self.last()
+            .nodes
+            .iter()
+            .find(|n| matches!(n.widget, Widget::ShapeEditor { .. }))
+            .map(|n| n.name.clone())
+            .expect("an editor on screen")
+    }
+
+    /// Carves the editor on screen to `shape`, as its client reports it.
+    fn carve(&mut self, who: [u8; 32], shape: u32) {
+        let name = self.editor();
+        self.event(who, Wire::Chiselled { name, shape, cells: Vec::new() });
+    }
+
+    /// Paints the editor on screen, in Mix, to `cells`.
+    fn paint(&mut self, who: [u8; 32], cells: Vec<u16>) {
+        let name = self.editor();
+        let shape = cells.iter().enumerate().filter(|(_, m)| **m != 0).fold(0, |s, (i, _)| s | (1 << i));
+        self.event(who, Wire::Chiselled { name, shape, cells });
+    }
+
     fn press(&mut self, who: [u8; 32], name: &str) {
         self.press_with(who, name, Press::Left);
     }
@@ -412,7 +436,21 @@ fn the_crafter_is_at_its_block() {
     r.event(ALICE, Wire::Closed);
     r.key(ALICE);
     assert!(!has_name(&r.last(), "tab/shapes"), "closing at a crafter left its tab behind");
-    println!("ok  the shape crafter is at its block: used, it opens; closed, it goes");
+
+    // Walked away from, or broken: the screen closes by itself, within half a
+    // second. The rig has no world, so the crafter it was opened at is gone.
+    r.use_crafter(ALICE);
+    let _ = r.vm.tick(9);
+    let before = r.sent();
+    r.press(ALICE, "tab/shapes");
+    assert_eq!(r.sent(), before + 1, "the crafter closed before its check");
+    let _ = r.vm.tick(1);
+    let before = r.sent();
+    r.press(ALICE, "tab/shapes");
+    assert_eq!(r.sent(), before, "a crafter that is not there kept its screen open");
+    r.key(ALICE);
+    assert!(!has_name(&r.last(), "tab/shapes"), "the crafter's tab outlived its screen");
+    println!("ok  the shape crafter is at its block: used, it opens; closed, left or broken, it goes");
 }
 
 fn empty_crafter() {
@@ -428,7 +466,7 @@ fn full_and_empty_masks_do_not_spend() {
     let mut r = Rig::crafter(&[], 90);
     r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
-    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 0, cells: Vec::new() });
+    r.carve(ALICE, 0);
     r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
     println!("ok  a full or empty mask spends nothing");
@@ -550,7 +588,8 @@ fn players_are_isolated() {
     r.key(BOB);
     assert!(slots(&r.last()).contains(&28), "bob should see his own inventory tab");
     r.key(BOB);
-    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 1 << 27, cells: Vec::new() });
+    // Alice's editor, named for the slab preset: the latest tree is Bob's.
+    r.event(ALICE, Wire::Chiselled { name: "cut/2".into(), shape: 1 << 27, cells: Vec::new() });
     r.press(ALICE, GRANITE);
     assert_eq!(r.bag(|b| b.takes[0].1), 90, "an out-of-range mask was adopted");
     r.leave(ALICE);
@@ -563,14 +602,92 @@ fn players_are_isolated() {
     println!("ok  players are isolated, and leaving or closing clears state");
 }
 
+/// The shape in the editor's tree, and its name.
+fn editor_state(tree: &Tree) -> (String, u32, Vec<u16>) {
+    tree.nodes
+        .iter()
+        .find_map(|n| match &n.widget {
+            Widget::ShapeEditor { shape, cells, .. } => Some((n.name.clone(), *shape, cells.clone())),
+            _ => None,
+        })
+        .expect("an editor on screen")
+}
+
 fn carving_does_not_echo() {
-    let mut r = Rig::crafter(&[], 90);
-    let before = r.sent();
-    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 7, cells: Vec::new() });
-    assert_eq!(r.sent(), before, "a carve sent a tree back");
+    let mut r = Rig::crafter(&[], 900);
+    let (name, shape, _) = editor_state(&r.last());
+    r.carve(ALICE, 7);
+    // A carve redraws, for the cost line, but the tree still carries the
+    // shape as last set, under the same name: the client keeps its own copy.
+    assert_eq!(editor_state(&r.last()), (name.clone(), shape, Vec::new()), "a carve was echoed");
+    assert!(labels(&r.last()).iter().any(|l| l == "3 granite each"), "{:?}", labels(&r.last()));
+    // A carve from an editor that has since been replaced is stale.
+    r.press(ALICE, "slab");
+    let (renamed, _, _) = editor_state(&r.last());
+    assert_ne!(renamed, name, "a preset did not rename the editor");
+    r.event(ALICE, Wire::Chiselled { name: name.clone(), shape: 1, cells: Vec::new() });
     r.press(ALICE, GRANITE);
-    assert_eq!(r.bag(|b| (b.gives[0].shape.map(Shape::occupancy), b.takes[0].1)), (Some(7), 30));
-    println!("ok  carving never echoes a stale mask");
+    assert_eq!(r.bag(|b| b.takes[0].1), 90, "a stale carve was adopted over the slab");
+    // The same preset twice still resets: the second press renames again.
+    r.press(ALICE, "tab/shapes");
+    r.press(ALICE, "slab");
+    assert_ne!(editor_state(&r.last()).0, renamed, "a repeated preset kept the editor's name");
+    println!("ok  carving never echoes, a preset always resets, and a stale carve is ignored");
+}
+
+/// Mix: an editor of several materials, a row as the brush, Make as the craft
+/// (Sub-Node Contract 9.1).
+fn mix_crafts_a_cut_of_several_materials() {
+    let mut r = Rig::crafter(&[], 900);
+    let (granite, marble) = (r.granite, r.marble);
+    r.bag(|b| b.stacks.get_mut(&ALICE).unwrap().push(Stack::new(marble, 90).unwrap()));
+    r.press(ALICE, "slab");
+    r.event(ALICE, Wire::Toggled { name: "mix".into(), checked: true });
+    // On: the slab, whole, in the brush (granite, the first row).
+    let (name, _, cells) = editor_state(&r.last());
+    let slab: Vec<u16> = (0..27).map(|i| if i % 9 < 3 { granite.0 } else { 0 }).collect();
+    assert_eq!(cells, slab, "Mix did not start from the slab in granite");
+    // Paint a step of marble on it; a row is now the brush and crafts nothing.
+    let mut step = slab.clone();
+    for i in [3, 4, 5] {
+        step[i] = marble.0;
+    }
+    r.paint(ALICE, step.clone());
+    r.press(ALICE, MARBLE);
+    assert!(r.bag(|b| b.takes.is_empty()), "a row crafted in Mix");
+    let (same, _, sent) = editor_state(&r.last());
+    assert_eq!((same, sent), (name, slab.clone()), "a brush change reset the player's cells");
+    assert!(labels(&r.last()).iter().any(|l| l == "9 granite, 3 marble each"), "{:?}", labels(&r.last()));
+    // Make: ten, one unit of each cell's own material an item.
+    let make = button(&r.last(), "Make").expect("Make, in Mix");
+    r.press(ALICE, &make);
+    assert_eq!(r.bag(|b| b.takes.clone()), vec![(granite, 90), (marble, 30)]);
+    let given = r.bag(|b| b.gives[0].clone());
+    assert_eq!(given.count(), 10);
+    assert!(given.cells.is_some(), "the cut was not given as cells");
+    // Not enough marble for one more: nothing is taken.
+    r.bag(|b| {
+        b.takes.clear();
+        b.stacks.get_mut(&ALICE).unwrap().retain(|s| s.material != marble || s.shape.is_some() || s.cells.is_some());
+        b.stacks.get_mut(&ALICE).unwrap().push(Stack::new(marble, 2).unwrap());
+    });
+    r.press(ALICE, "tab/shapes");
+    r.press(ALICE, &make);
+    assert!(r.bag(|b| b.takes.is_empty()), "crafted without enough marble");
+    assert!(labels(&r.last()).iter().any(|l| l == "Not enough marble."), "{:?}", labels(&r.last()));
+    // A short take on the second material puts back both.
+    r.bag(|b| b.stacks.get_mut(&ALICE).unwrap().push(Stack::new(marble, 88).unwrap()));
+    let before = r.units(ALICE, granite);
+    r.bag(|b| b.short_take = true);
+    r.press(ALICE, &make);
+    r.bag(|b| b.short_take = false);
+    assert_eq!(r.units(ALICE, granite), before, "granite was lost when marble fell short");
+    // Off: back to one material, the carve kept as a shape.
+    r.event(ALICE, Wire::Toggled { name: "mix".into(), checked: false });
+    let (_, shape, cells) = editor_state(&r.last());
+    let carved = step.iter().enumerate().filter(|(_, m)| **m != 0).fold(0u32, |s, (i, _)| s | (1 << i));
+    assert!(cells.is_empty() && shape == carved, "Mix off lost the carve: {shape:#b}");
+    println!("ok  Mix: paint cells, a row is the brush, Make takes each material, all or nothing");
 }
 
 // --- Other mods -----------------------------------------------------------------
@@ -1069,6 +1186,9 @@ fn screens_fit_without_scrolling() {
     r.use_crafter(ALICE);
     r.press(ALICE, "stairs");
     trees.push(("crafter", r.last()));
+    r.event(ALICE, Wire::Toggled { name: "mix".into(), checked: true });
+    trees.push(("crafter, mixing", r.last()));
+    r.event(ALICE, Wire::Toggled { name: "mix".into(), checked: false });
     let bag = button(&r.last(), "Bag").unwrap();
     r.press(ALICE, &bag);
     trees.push(("another mod's tab", r.last()));
@@ -1082,6 +1202,16 @@ fn screens_fit_without_scrolling() {
         for (name, tree) in &trees {
             for problem in misfits(tree, area) {
                 failed.push(format!("{w}x{h} ({}x{} room), {name}: {problem}", area.0, area.1));
+            }
+            // A list that scrolls must still show a whole row of itself.
+            let laid = ui::layout(tree, ui::Rect::new(0, 0, area.0, area.1), &Ruler);
+            for (at, node) in tree.nodes.iter().enumerate() {
+                if matches!(node.widget, Widget::Scroll)
+                    && let Some(r) = rect_of(tree, 0, &laid, at)
+                    && r.h < 30
+                {
+                    failed.push(format!("{w}x{h}, {name}: the material list is {} high", r.h));
+                }
             }
         }
     }
@@ -1112,6 +1242,11 @@ fn craft_messages() -> Vec<String> {
         .collect();
     let most = game_items_per_stack();
     found.push(format!("Made {most} weathered sandstone"));
+    found.push(format!("Made {most} mixed"));
+    found.push("Not enough weathered sandstone.".to_owned());
+    // The cost line's longest form, and what it falls back to past 30 bytes.
+    found.push("27 units each, 27 materials".to_owned());
+    found.push("x".repeat(30));
     assert!(found.len() >= 7, "expected crafting.lua's messages, found {found:?}");
     found
 }
@@ -1491,6 +1626,7 @@ fn main() {
     named_and_shaped_stacks_are_kept();
     players_are_isolated();
     carving_does_not_echo();
+    mix_crafts_a_cut_of_several_materials();
     another_mods_tab_and_buttons();
     faults_land_on_the_mod_that_wrote_them();
     round_trip_views();

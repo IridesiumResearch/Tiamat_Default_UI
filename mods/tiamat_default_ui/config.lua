@@ -48,6 +48,8 @@ C.editor_width = 232           -- the shape editor's well; the controls take the
 C.material_row = 30            -- one material in the crafter's list
 C.preset_columns = 4           -- presets a row: the built-in four fill the first
 C.max_added_presets = 8        -- two more rows of other mods' presets, at most
+C.station_reach = 6            -- blocks from a station before its screen closes
+C.station_check = 10           -- ticks between those checks: twice a second
 C.max_preset_label = 8         -- a preset button is a quarter of the column
 
 -- The HUD -------------------------------------------------------------------

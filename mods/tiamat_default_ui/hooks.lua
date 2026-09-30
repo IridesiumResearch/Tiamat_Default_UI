@@ -12,6 +12,7 @@ local actions = {}
 local joins = {}
 local dialogs = {}
 local leaves = {}
+local ticks = {}
 
 -- Runs `fn(event)` when a player presses or releases the qualified action `id`.
 function tdi.on_action(id, fn)
@@ -35,6 +36,17 @@ end
 function tdi.on_leave(fn)
     leaves[#leaves + 1] = fn
 end
+
+-- Runs `fn(dt_ticks)` every simulation tick.
+function tdi.on_tick(fn)
+    ticks[#ticks + 1] = fn
+end
+
+game.register_on_tick(function(dt_ticks)
+    for _, fn in ipairs(ticks) do
+        fn(dt_ticks)
+    end
+end)
 
 game.register_on_action(function(event)
     local list = actions[event.id]

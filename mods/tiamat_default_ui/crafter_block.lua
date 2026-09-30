@@ -21,8 +21,11 @@ game.register_block{
     textures = { all = "textures/shape-crafter.png" },
 }
 
+local ID = game.mod_id .. ":" .. BLOCK
+
 game.register_on_use(function(event)
-    if tdi.screen.open_station(event.player, "shapes") then return "" end
+    local where = { x = event.x // 3, y = event.y // 3, z = event.z // 3, domain = event.domain, block = ID }
+    if tdi.screen.open_station(event.player, "shapes", where) then return "" end
 end, { materials = { BLOCK } })
 
-return { block = game.mod_id .. ":" .. BLOCK }
+return { block = ID }
