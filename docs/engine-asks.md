@@ -29,7 +29,117 @@ rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
 right, 150 by 360"), with sheets narrowing before they overlap it. The mod
 cannot move a sheet itself.
 
-## 17. Which click pressed a button (2026-09-29)
+## 19. A dialog cannot be built from another mod's exported widgets (2026-09-30): LANDED 2026-09-30 (engine 71bf067)
+
+Relayed by the designer from this mod's work on Magic's U-M2: "the
+underlying U-M2 problem is that `game.show_dialog` can't read read-only
+tables that came from another mod. I documented a workaround rather than
+fixing it. The real fix would be the engine reading those tables properly."
+The workaround is `docs/exports.md`'s rule that a tree shown with
+`game.show_dialog` must be plain tables, and `util.plain` in callers.
+
+**What was wrong.** A table crossing between mods is a read-only view: an
+empty table whose contents are served through `__index`, `__len` and
+`__pairs`. The engine read a dialog tree raw, as `lua_next` and
+`lua_rawgeti` do, so a view's own entries were all it saw — none. Fields
+read by name came through, which is why it half worked; every list the
+exporting mod had built itself (a page's `children`, a dropdown's
+`options`) came out empty. An exported page arrived as one bare column.
+
+**From the engine, 2026-09-30 (engine 71bf067, no protocol change).**
+`game.show_dialog` and `game.update_dialog` now read what each view stands
+for, wherever it sits in the tree: as the root, as a child of a plain
+table, inside a list the other mod made, views of views. Nothing is
+written, and nothing a mod could not already read through the view is
+read. A tree with no view in it is read exactly as before, the same table,
+not a copy. So:
+
+```lua
+local ui = game.exports("tiamat_default_ui")
+game.show_dialog{ player = uuid, form = "book", tree = ui.page("Mutus Liber") }
+```
+
+works as written. `util.plain` and the plain-tables rule in
+`docs/exports.md` can go; nothing breaks if they stay.
+`crates/core/tests/mods.rs`,
+`a_dialog_built_from_another_mods_exported_widgets_is_shown_whole`, is the
+proof: without the change that page came out as one node, with it three.
+
+## 18. A cut of several materials (2026-09-29, from the designer): LANDED 2026-09-30 (engine ca0f919..03d968d, protocol 81), awaiting the eye
+
+Asked by the designer of the engine session, not by this mod: "in the
+shape crafter it is important that there is a way to build a shape out
+of all the different materials in the inventory", and, asked which was
+meant, both. A row for every material carried is this mod's new crafter
+and ask 17. The other half is ONE cut made of SEVERAL materials, each
+cell its own: a stone stair with an oak tread. That is the engine's to
+make possible and is written here so the crafter can be planned against
+it.
+
+**What exists already.** The world holds such blocks and always has: two
+cuts of different materials placed into one block make one, and breaking
+it pays out each material's cells. What is missing is the item, and an
+editor that keeps each cell's material.
+
+**The shape it will take.**
+
+```lua
+-- The editor, in several-material mode: 27 cells, one-based, cell i - 1
+-- being x + 3*y + 9*z, each a material id or 0 for empty. `material` is
+-- the BRUSH: a right-click adds a cell of it, a left-click takes the
+-- nearest cell off whatever it is made of.
+{ type = "shape_editor", name = "cut", shape = mask, material = brush, cells = cells }
+
+-- What it reports: the mask as before, and the cells.
+-- event.kind == "chiselled", event.shape, event.cells
+
+-- The item. One unit a cell, each of that cell's material, so the craft
+-- takes n * (cells of m) units of every material m and gives n of these.
+game.give(player, { cells = cells, count = n })
+
+-- In game.inventory and game.held a cut of several materials reports
+-- `cells`, with `material` the lowest id among them and `shape` the mask
+-- (the full mask, never absent, when the cut fills the block).
+```
+
+An editor sent without `cells` is what it is today, one material
+throughout, so nothing this mod does now changes. Choosing a row would
+set the brush rather than the whole cube's material; whether a click on
+a row still crafts, or a Make button comes back for a cut of several, is
+this mod's to decide.
+
+**What does not change.** A cut places as itself whatever tool is held,
+all of it or none, and only into air. Breaking what it made pays out
+loose material, one stack a material. Identical cuts stack and nothing
+else does.
+
+**From the engine, 2026-09-30 (engine ca0f919..03d968d, protocol 81).**
+Landed in the shape above, with nothing changed from it. The contract
+went first (Sub-Node Contract §9.1, and §7.1/§7.2 for placing), then the
+item, saving (player, container and dropped-item formats each gained a
+migration step, all in world ids), the wire, placing, Lua, and drawing.
+
+- **Everywhere a stack is drawn, its cells are:** a slot, the cursor, a
+  HUD icon, the hand in first person, another player's hand, and an item
+  on the ground. A slot's hover names every material in it.
+- **The editor keeps its own copy**, so a click lands at once, and takes
+  the server's cells only when they differ from what it last sent;
+  changing the brush never resets the carving.
+- **`game.take` with `cells` takes that exact cut**, and a take that
+  names a material and no cells never takes from a cut of several, even
+  one that fills the block.
+- **The reference crafter (`game/core_ui`) does it end to end** through
+  the public API: a "Several materials" checkbox, the dropdown as the
+  brush, a cost line naming each material's units, and Make taking them
+  and giving the cut, putting back what it took if any material is
+  short. Read it for the calls; this mod's crafter is this mod's.
+
+For the eye ([H]): in the reference crafter, tick "Several materials",
+paint with two materials chosen in turn, Make, then look at it in a
+slot, in the hand, placed, and dropped with Q. Placed and broken, it
+must pay out each material's cells.
+
+## 17. Which click pressed a button (2026-09-29): LANDED 2026-09-29 (engine c444967)
 
 The crafter makes a shape from the material row a player clicks: click for
 ten, right-click for one, double-click to fill a stack, as a chest works in
@@ -49,6 +159,29 @@ presses it (today it does nothing). A mod that ignores `click` sees exactly
 what it sees now. `tab_shapes.lua` already reads `event.click`, treating nil
 as a left click, so the crafter works as designed the day this lands and the
 native check can then drive all three.
+
+**From the engine, 2026-09-29.** Landed as asked. `event.click` on
+`"pressed"` is `"left"`, `"right"` or `"double"`, and is always set, so
+`tab_shapes.lua`'s nil case is never taken against this engine and is only
+there for an older one. A right-click on a button presses it. A double-click
+is two events, `"left"` and then `"double"`, which is what `wanted()` already
+assumes: the first half makes ten and the double tops the stack up.
+
+One thing to know about the double: egui decides what a double-click is
+(two presses of the primary button on one widget within its own interval and
+a few points of each other), and the engine reports what egui says. A redraw
+between the two halves does not break it as long as the row keeps its name
+and its place, which a row named by its material does; a list that re-sorts
+under the pointer would turn the second half into a `"left"` on another row.
+
+The native check can drive all three: `bot.press(form, name, click)` takes
+`"left"` (the default), `"right"` or `"double"`, and a script that means a
+double-click sends the `"left"` first, as a client does. On the wire it is a
+byte on `DialogEvent::Pressed` (`proto::Press`), which is protocol 79; Life 18
+(riding) moves to 80. Tests: `a_mod_hears_which_click_pressed_its_button`
+(bot, a real server), `a_press_is_its_name_and_then_which_click` (the
+encoding, pinned), `a_button_says_which_press_it_had` (the client's reading
+of egui).
 
 ## 16. The shape editor draws a black cube (2026-09-28): LANDED 2026-09-28 (engine 0921437)
 
@@ -102,6 +235,29 @@ ones it has. What it looks like in the window is the designer's ([H]):
 the Crafting tab with dirt, stone or coal chosen, the cube in the
 material's true colour, and every slot, the hotbar and a carried stack
 noticeably lighter than before.
+
+**From the engine, 2026-09-29 (engine eaf0d2e, 0989d3d): the rest of what
+that look found.** The wire was one half. The other was inside the
+server: the tables the tick reads (hardness, drops, tool speeds, light
+given off, let through and dimmed, what a body walks through and slides
+on, what the ground drinks and turns into) were keyed by the world's ids
+and asked with the session's, which is what a chunk in memory holds. On a
+world made by the mod set that opens it the two are the same number, so
+nothing showed. On a world reopened with a mod added, removed or loading
+in another place, a lamp did not glow, glass was dark, some unrelated
+block was walked through, and a block was timed and paid out as another
+material. The far horizon was drawn in the wrong materials the same way,
+and an item lying on the ground was saved under the session's number and
+came back as something else. All keyed one way now: the session's ids in
+memory, the world's on disk and on the wire, and nowhere else.
+
+What that means for a mod: **adding a mod to a world that already exists
+is safe**, which it was not. It is what every world does the day Magic
+and Science are linked in. An existing world rebuilds its horizon once,
+the first time it is opened, because the cached one may have been
+written the old way. Tests: `crates/bot/tests/divergent_ids.rs`, six of
+them through a real bot on a world reopened under another mod set, each
+seen to fail before the fix.
 
 Landed so far, asserted by the native check except 11 and 12,
 which are the client's own drawing:

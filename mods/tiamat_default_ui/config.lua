@@ -14,7 +14,6 @@ local C = {}
 -- Slots --------------------------------------------------------------------
 
 C.hotbar_first = 1
-C.hotbar_count = 9
 C.pack_first = 10              -- the pack is 10..27
 C.pack_count = 18
 C.offhand_slot = 28            -- the last fillable slot
