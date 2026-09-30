@@ -22,7 +22,7 @@ use tiamat_core::{
     MaterialId,
     content::hash_bytes,
     hud::{self, Carried, Command, HeldTool, Look, State, Value as HudValue, Values},
-    inventory::{Access, Shape, Stack},
+    inventory::{Access, Shape, Stack, StackKey},
     proto::{DialogEvent as Wire, Press},
     coords::SubNodePos,
     script::{
@@ -92,7 +92,7 @@ impl Access for Inventory {
         let list = bag.stacks.entry(player).or_default();
         match list
             .iter_mut()
-            .find(|s| s.material == stack.material && s.shape == stack.shape && s.detail == stack.detail)
+            .find(|s| s.key() == stack.key())
         {
             Some(existing) => existing.units += stack.units,
             None => list.push(stack),
@@ -113,20 +113,18 @@ impl Access for Inventory {
         player: [u8; 32],
         _: &str,
         _: Option<usize>,
-        material: MaterialId,
-        shape: Option<Shape>,
-        detail: Option<&str>,
+        which: StackKey<'_>,
         units: u32,
     ) -> u32 {
         let mut bag = self.0.lock().unwrap();
         let short = bag.short_take;
-        bag.takes.push((material, units));
+        bag.takes.push((which.material, units));
         let Some(list) = bag.stacks.get_mut(&player) else {
             return 0;
         };
         let Some(stack) = list
             .iter_mut()
-            .find(|s| s.material == material && s.shape == shape && s.detail.as_deref() == detail)
+            .find(|s| which.matches(s))
         else {
             return 0;
         };
@@ -430,7 +428,7 @@ fn full_and_empty_masks_do_not_spend() {
     let mut r = Rig::crafter(&[], 90);
     r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
-    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 0 });
+    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 0, cells: Vec::new() });
     r.press(ALICE, GRANITE);
     assert!(r.bag(|b| b.takes.is_empty()));
     println!("ok  a full or empty mask spends nothing");
@@ -552,7 +550,7 @@ fn players_are_isolated() {
     r.key(BOB);
     assert!(slots(&r.last()).contains(&28), "bob should see his own inventory tab");
     r.key(BOB);
-    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 1 << 27 });
+    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 1 << 27, cells: Vec::new() });
     r.press(ALICE, GRANITE);
     assert_eq!(r.bag(|b| b.takes[0].1), 90, "an out-of-range mask was adopted");
     r.leave(ALICE);
@@ -568,7 +566,7 @@ fn players_are_isolated() {
 fn carving_does_not_echo() {
     let mut r = Rig::crafter(&[], 90);
     let before = r.sent();
-    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 7 });
+    r.event(ALICE, Wire::Chiselled { name: "cut".into(), shape: 7, cells: Vec::new() });
     assert_eq!(r.sent(), before, "a carve sent a tree back");
     r.press(ALICE, GRANITE);
     assert_eq!(r.bag(|b| (b.gives[0].shape.map(Shape::occupancy), b.takes[0].1)), (Some(7), 30));
@@ -1227,7 +1225,7 @@ fn node_json(tree: &Tree, at: usize, laid: &ui::Laid) -> Value {
             object.insert("first".into(), json!(first + 1));
             object.insert("count".into(), json!(count));
         }
-        Widget::ShapeEditor { shape, material } => {
+        Widget::ShapeEditor { shape, material, .. } => {
             kind("shape_editor");
             object.insert("shape".into(), json!(shape));
             object.insert("material".into(), json!(material));
@@ -1262,6 +1260,7 @@ fn hud_json(source: &str) -> Value {
         units,
         shape: 0,
         detail: None,
+        cells: Vec::new(),
     };
     let mut state = State::default();
     state.selected = 2;
@@ -1388,7 +1387,7 @@ fn hud_check() {
     let source = std::fs::read_to_string(dir.join("hud.lua")).unwrap();
     let (hash, frame) = hotbar_frame();
     let stone = MaterialId(3);
-    let loose = |units| Carried { material: stone, name: "Granite".into(), units, shape: 0, detail: None };
+    let loose = |units| Carried { material: stone, name: "Granite".into(), units, shape: 0, detail: None, cells: Vec::new() };
     for selected in 0..9 {
         let mut state = State::default();
         state.selected = selected;
@@ -1417,6 +1416,24 @@ fn hud_check() {
         })
         .unwrap();
     }
+    // A cut of several materials is drawn as its own cells, not all as the
+    // lowest material it holds.
+    let mut mixed: Vec<u16> = vec![0; 27];
+    mixed[..9].fill(3);
+    mixed[9..12].fill(5);
+    let mut state = State::default();
+    state.carried = vec![None; 9];
+    state.carried[0] = Some(Carried { shape: 0b111_111_111_111, units: 27, cells: mixed.clone(), ..loose(0) });
+    let mut hud = HudVm::new(HudLimits::default()).unwrap();
+    hud.load(MOD, &source).unwrap();
+    assert!(hud.draw(&state).is_empty());
+    hud.with_frame(|f| {
+        assert!(
+            f.commands().iter().any(|c| matches!(c, Command::Icon { cells, .. } if *cells == mixed)),
+            "a mixed cut's hotbar icon lost its cells"
+        );
+    })
+    .unwrap();
     // Before the value lands, the slots are rectangles rather than magenta.
     let mut bare = HudVm::new(HudLimits::default()).unwrap();
     bare.load(MOD, &source).unwrap();
@@ -1430,7 +1447,7 @@ fn hud_check() {
         );
     })
     .unwrap();
-    println!("ok  hud: registered picture, hash sent on join, drawn slots, UTF-8 trimming, nine selections");
+    println!("ok  hud: registered picture, hash sent on join, drawn slots, mixed cuts, UTF-8 trimming, nine selections");
 }
 
 /// `core_ui` is replaced, not joined: the manifest names it in `conflicts`, and

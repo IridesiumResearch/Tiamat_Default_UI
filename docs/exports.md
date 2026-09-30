@@ -49,11 +49,9 @@ Functions another mod passes in, which run in that mod's sandbox:
 
 **What the exports answer is read-only, all the way down**, the `widgets`
 builders' trees included: every table crosses the mod boundary as a view.
-Handed back to this mod, a tab's tree is copied field by field, so a tab never
-notices. **A tree you pass to `game.show_dialog` yourself must be plain
-tables**: the engine reads a view's fields as missing (a colour arrives as
-"no numbers at all"), so deep-copy a builder's widget before showing it in a
-dialog of your own.
+Iterating and reading work; writing does not, which is why `widgets.tip`
+answers a copy. A builder's widget may go straight into a dialog of your own:
+`game.show_dialog` reads views as it reads plain tables (engine 71bf0673).
 
 A tab's tree is rebuilt into this mod's tables; only the widget and style
 fields the engine documents are kept, every widget `name` is prefixed with the

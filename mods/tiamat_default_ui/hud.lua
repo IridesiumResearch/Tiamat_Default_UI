@@ -63,7 +63,7 @@ local function draw_slot(x, key, stack, selected, frame)
     end
     if stack then
         hud.icon{ anchor = "bottom", x = x + 13, y = y - 13, size = SLOT - 26,
-            material = stack.material, shape = stack.shape }
+            material = stack.material, shape = stack.shape, cells = stack.cells }
         -- A dark backing keeps the quantity readable over a pale icon.
         local q = quantity(stack)
         local width = #q * 11 + 6
