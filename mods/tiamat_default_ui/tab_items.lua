@@ -56,7 +56,8 @@ local function build(player, data)
         quick_heading,
         cells(C.hotbar_first, T.slot(VIEW, C.offhand_slot, true)),
         T.space(0, C.gap),
-        T.hint("Left-click: move a stack   /   Right-click: split, or place one"),
+        T.hint("Click: move   /   Right: half, or one block   /   Shift: by node"),
+        T.hint("Click outside the inventory to drop what you hold"),
     })
     block.size = WIDTH
     -- Centred across the body; top-aligned so switching tabs never moves it.

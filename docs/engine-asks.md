@@ -29,7 +29,13 @@ rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
 right, 150 by 360"), with sheets narrowing before they overlap it. The mod
 cannot move a sheet itself.
 
-## 21. Whole blocks first, and a held stack dropped outside the sheet (2026-10-12, from the designer)
+## 21. Whole blocks first, and a held stack dropped outside the sheet (2026-10-12, from the designer): LANDED 2026-10-12 (engine 37098efe, protocol 89), awaiting the eye
+
+**Landed as asked.** `game.set_slot_grain(27)`, `Click::ShiftRight` and a
+`"dropped"` dialog event a handler claims by answering `true`; anything else
+puts the stack back on the cursor. The mod sets the grain at load, throws a
+claimed stack along `facing` and picks it back up (`drops.lua`); the native
+check drives both through the engine's own entity store.
 
 **Wanted.** Two things a player brings from every block game:
 

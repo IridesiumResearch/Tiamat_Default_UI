@@ -32,9 +32,13 @@ tdi.config = load("config")
 -- pickup that does not fit is refused rather than landing in a slot nobody
 -- can see (engine ask 14).
 game.set_main_slots(tdi.config.offhand_slot)
+-- A plain right-click splits and places loose material in whole blocks;
+-- shift with it is the unit gesture (engine ask 21).
+game.set_slot_grain(27)
 tdi.theme = load("theme")         -- palette, frames, the display font, widget helpers
 load("hooks")                     -- one engine registration per hook, many subscribers
 tdi.crafting = load("crafting")   -- loose stock, shape masks and the craft transaction
+tdi.drops = load("drops")         -- a stack clicked outside the sheet, and picking it up
 tdi.screen = load("screen")       -- sessions, the tab and button registries, the dialog
 load("tab_items")                 -- Inventory: quick access, pack, off-hand
 load("tab_shapes")                -- the shape crafter, a station's tab

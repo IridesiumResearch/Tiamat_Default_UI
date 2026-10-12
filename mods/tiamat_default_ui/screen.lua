@@ -460,6 +460,11 @@ tdi.on_dialog(FORM, function(event)
         s.open, s.at, s.where = false, nil, nil
         return
     end
+    -- A held stack clicked outside the sheet, already off the cursor: it
+    -- lands in the world, or, with nowhere to land, the engine puts it back.
+    if event.kind == "dropped" then
+        return tdi.drops.throw(player, event.stack)
+    end
     local name = event.name
 
     if event.kind == "pressed" and name then

@@ -22,7 +22,8 @@ function tdi.on_action(id, fn)
 end
 
 -- Runs `fn(event)` for events from the dialog this mod showed as `form`
--- (unqualified; the engine reports it qualified).
+-- (unqualified; the engine reports it qualified). What `fn` returns goes back
+-- to the engine, which reads it for one kind: `true` claims a `"dropped"`.
 function tdi.on_dialog(form, fn)
     local qualified = game.mod_id .. ":" .. form
     assert(not dialogs[qualified], "dialog subscribed twice: " .. form)
@@ -58,7 +59,7 @@ end)
 
 game.register_on_dialog_event(function(event)
     local fn = dialogs[event.form]
-    if fn then fn(event) end
+    if fn then return fn(event) end
 end)
 
 game.register_on_player_join(function(event)

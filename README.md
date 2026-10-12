@@ -111,7 +111,11 @@ Press **E** (rebindable) to open and close the screen.
 - **Inventory.** 28 slots: 1–9 are quick access, 10–27 the pack and 28 the
   off-hand, and the inventory holds no more than that: a full pack refuses a
   pickup rather than hiding it. Worn slots are separate views and not counted.
-  Left-click moves a stack, right-click splits or places one.
+  It deals in whole blocks: left-click moves a stack, right-click takes half
+  of one to the nearest block or puts down one block, and shift with the
+  right-click does the same by the node. Click outside the screen with a
+  stack held to drop it in front of you (a right-click drops one block);
+  walk over it to pick it back up. Dropped stacks last five minutes.
 - **The shape crafter** is a block: place one and right-click it, as you
   would a crafting table, and the screen opens on its tab. It is not in the
   inventory you carry. Carve the cube on the left: left-click takes a cell

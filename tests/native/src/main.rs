@@ -21,9 +21,11 @@ use serde_json::{Value, json};
 use tiamat_core::{
     MaterialId,
     content::hash_bytes,
+    ent::{self, Entities, Entity, EntityId, Owner, Patch, Transform},
+    identity::PlayerUuid,
     hud::{self, Carried, Command, HeldTool, Look, State, Value as HudValue, Values},
     inventory::{Access, Shape, Stack, StackKey},
-    proto::{DialogEvent as Wire, Press},
+    proto::{Click, DialogEvent as Wire, Press},
     coords::SubNodePos,
     script::{
         ActionEvent, DialogEvent, EngineVm, HudLimits, HudVm, JoinEvent, LeaveEvent, ScriptVm, UseAim, UseEvent,
@@ -161,6 +163,76 @@ impl UiAccess for Screens {
     }
 }
 
+/// The world's entities: the engine's own store behind a lock, and players'
+/// bodies found by owner, as the engine's tests keep one.
+#[derive(Default)]
+struct World(Mutex<Entities>);
+
+impl World {
+    /// A body for `who`, standing at `at` and facing +Z.
+    fn body(&self, who: [u8; 32], at: [f64; 3]) -> EntityId {
+        let mut body = Entity::at(Transform::from_world(at[0], at[1], at[2]), "engine:player");
+        body.owner = Some(Owner(PlayerUuid::from_bytes(who)));
+        self.0.lock().unwrap().spawn(body)
+    }
+
+    /// The stacks lying on the ground, as `(units, shaped)`.
+    fn items(&self) -> Vec<(u32, bool)> {
+        let world = self.0.lock().unwrap();
+        world.iter().filter_map(|(_, e)| e.item.as_ref().map(|s| (s.units, s.shape.is_some()))).collect()
+    }
+}
+
+impl ent::Access for World {
+    fn spawn(&self, entity: Entity) -> Option<EntityId> {
+        Some(self.0.lock().unwrap().spawn(entity))
+    }
+
+    fn despawn(&self, id: EntityId) -> bool {
+        self.0.lock().unwrap().despawn(id).is_some()
+    }
+
+    fn get(&self, id: EntityId) -> Option<Entity> {
+        self.0.lock().unwrap().get(id).cloned()
+    }
+
+    fn patch(&self, id: EntityId, patch: &Patch) -> bool {
+        self.0.lock().unwrap().get_mut(id).is_some_and(|e| patch.apply(e))
+    }
+
+    fn player(&self, uuid: [u8; 32]) -> Option<EntityId> {
+        let world = self.0.lock().unwrap();
+        world.iter().find_map(|(id, e)| (e.owner.map(|o| *o.0.as_bytes()) == Some(uuid)).then_some(id))
+    }
+
+    fn within(&self, centre: [f64; 3], radius: f64, source: Option<&str>) -> Vec<EntityId> {
+        let world = self.0.lock().unwrap();
+        let centre = Transform::from_world(centre[0], centre[1], centre[2]);
+        world
+            .within(&centre, (radius * 3.0) as f32)
+            .into_iter()
+            .filter(|(id, _)| source.is_none_or(|wanted| world.get(*id).is_some_and(|e| e.source == wanted)))
+            .map(|(id, _)| id)
+            .collect()
+    }
+
+    fn move_player(&self, _: [u8; 32], _: [f64; 3]) -> bool {
+        false
+    }
+
+    fn select_slot(&self, _: [u8; 32], _: u16) -> bool {
+        false
+    }
+
+    fn shove_player(&self, _: [u8; 32], _: [f32; 3]) -> bool {
+        false
+    }
+
+    fn transfer(&self, _: EntityId, _: &str, _: [f64; 3]) -> bool {
+        false
+    }
+}
+
 // --- The rig -----------------------------------------------------------------
 
 struct Rig {
@@ -231,7 +303,22 @@ impl Rig {
             mod_id: MOD.into(),
             form: format!("{MOD}:inventory"),
             event,
+            dropped: None,
         });
+    }
+
+    /// A held stack clicked outside the sheet, already off the cursor:
+    /// whether the mod claimed it.
+    fn drop(&mut self, who: [u8; 32], click: Click, stack: Stack) -> bool {
+        self.vm
+            .dialog_event(&DialogEvent {
+                player: who,
+                mod_id: MOD.into(),
+                form: format!("{MOD}:inventory"),
+                event: Wire::Dropped { click },
+                dropped: Some(stack),
+            })
+            .claimed
     }
 
     /// Right-clicks a shape crafter block with an empty hand.
@@ -414,6 +501,40 @@ fn layout() {
     // theme's font, which is the display face, and read as small capitals.
     assert!(tree.nodes.iter().any(|n| n.style.font.as_deref() == Some(TEXT_FONT)));
     println!("ok  layout: 28 slots, quick access, pack, off-hand, iron frames only, both fonts, no scroll");
+}
+
+/// A held stack clicked outside the sheet lands in front of the player, and
+/// walking over it gives it back, once it has had time to leave their hands;
+/// what a full pack cannot take stays on the ground.
+fn a_stack_dropped_outside_lands_and_comes_back() {
+    let mut r = Rig::new(&[]);
+    r.key(ALICE);
+    let material = r.granite;
+    let granite = |units| Stack::new(material, units).unwrap();
+    assert!(!r.drop(ALICE, Click::Left, granite(54)), "with no world it was claimed, and lost");
+
+    let world = Arc::new(World::default());
+    r.vm.set_entity_access(world.clone());
+    assert!(!r.drop(ALICE, Click::Left, granite(54)), "with no body to throw from it was claimed");
+    world.body(ALICE, [0.5, 10.0, 0.5]);
+    assert!(r.drop(ALICE, Click::Right, granite(27)), "a block dropped outside was not claimed");
+    assert_eq!(world.items(), vec![(27, false)], "the block is not on the ground");
+    let _ = r.vm.tick(1);
+    assert_eq!(world.items().len(), 1, "it came straight back to the hand that dropped it");
+    let _ = r.vm.tick(60);
+    assert!(world.items().is_empty(), "standing on it did not pick it up");
+    assert_eq!(r.units(ALICE, r.granite), 27, "picked up, it is not in the pack");
+
+    // A pack with room for nine units of a cut picks those up and leaves
+    // the rest lying where it was.
+    r.inventory.0.lock().unwrap().shaped_room = Some(9);
+    let mut slab = granite(27);
+    slab.shape = Some(Shape::new(0x1FF).unwrap());
+    assert!(r.drop(ALICE, Click::Left, slab));
+    let _ = r.vm.tick(61);
+    assert_eq!(world.items(), vec![(18, true)], "what did not fit is not left on the ground");
+    assert!(r.vm.faulted_mods().is_empty(), "{:?}", r.vm.faulted_mods());
+    println!("ok  a stack dropped outside the sheet lands in the world and is picked back up");
 }
 
 /// The shape crafter is a block's: its tab is not in the inventory a player
@@ -1616,6 +1737,7 @@ fn core_ui_stands_aside_for_it() {
 fn main() {
     layout();
     the_crafter_is_at_its_block();
+    a_stack_dropped_outside_lands_and_comes_back();
     other_mods_add_presets();
     empty_crafter();
     full_and_empty_masks_do_not_spend();
