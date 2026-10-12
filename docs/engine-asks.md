@@ -29,6 +29,52 @@ rectangle rather than a bottom band (a HUD saying "keep clear of the bottom
 right, 150 by 360"), with sheets narrowing before they overlap it. The mod
 cannot move a sheet itself.
 
+## 21. Whole blocks first, and a held stack dropped outside the sheet (2026-10-12, from the designer)
+
+**Wanted.** Two things a player brings from every block game:
+
+1. **The inventory deals in whole blocks.** Right-click on a stack of loose
+   material takes half to the nearest whole block (100 units, 3 blocks and 19
+   nodes, leaves 1 block and 19 nodes behind and takes 2 blocks — or the
+   rounding that keeps the larger half in hand, as today); right-click with a
+   stack held puts down one whole block. **Shift with the same click** does
+   what right-click does today, in nodes: half in units, one unit down.
+   Shift+left stays the quick move it is. Cuts, cuts of several materials and
+   items already move in whole items and are unchanged.
+2. **A stack held on the cursor and clicked outside the sheet leaves the
+   player**, as in Minetest and Minecraft: left-click outside drops it all,
+   right-click outside drops one whole block (shift+right, one node).
+
+**Why a mod cannot do it.** Slot clicks are applied on the server before the
+screen's mod hears of them (`handle.rs`, "A slot click is applied HERE"),
+with the grain fixed in `Slots::right_click` (`grain_for`, units for loose
+material). `proto::Click` has `Left`, `Right` and `ShiftLeft`, so a client
+cannot say shift+right. A click outside the sheet is not reported at all,
+the cursor is the engine's (`Slots::grab`) and no call reads or takes it, and
+closing the screen puts the cursor back (`return_held`).
+
+**Smallest change.**
+
+1. `Click::ShiftRight` (protocol bump). The grain a plain right-click splits
+   and places loose material in becomes a whole block (27 units, or what is
+   there when less); `ShiftRight` is today's right-click. Whether this is the
+   engine's default or a choice the inventory mod makes once at load
+   (`game.set_slot_grain(27)`, registration only, like `set_main_slots`) is
+   the engine's call; the designer wants whole blocks in this game either way.
+2. A click outside the sheet while the cursor holds something is reported to
+   the screen's owner as a dialog event, `kind = "dropped"`, carrying the
+   stack that left (`{ material, units, shape, cells, detail }`, as
+   `game.inventory` reports one) and the click: left all of it, right one
+   block, shift+right one unit. The engine takes it off the cursor first, so
+   the event is a fact and not a request, the same rule a slot click follows.
+   What a dropped stack BECOMES is the mod's (charter rule 1): this mod spawns
+   it as an item entity in front of the player (`game.spawn_entity{ item }`,
+   thrown along `facing`) and gives it back to whoever walks over it.
+
+A mod that ignores `"dropped"` should not lose the stack: if nobody handles
+it, the engine could put it back where `return_held` would, which keeps the
+rule that a held stack never disappears.
+
 ## 20. A mod's settings under its name on the Mods tab (2026-10-07, from the designer): LANDED 2026-10-07 (engine c65269b7), awaiting the eye
 
 **Landed.** In two parts. Part 1 (`befe1921`, by the lead): each enabled mod's
