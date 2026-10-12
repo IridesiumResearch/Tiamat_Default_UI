@@ -161,6 +161,10 @@ impl UiAccess for Screens {
     fn close(&self, _: &str, _: &str) -> bool {
         true
     }
+
+    fn set_hover(&self, _: &str, _: Vec<(MaterialId, String)>) -> bool {
+        true
+    }
 }
 
 /// The world's entities: the engine's own store behind a lock, and players'
