@@ -10,7 +10,9 @@ answer it. Newest first.
 
 ## Tiamat Default Craft
 
-### C2. The hand tab where the Crafting tab was (2026-09-29): OPEN, low
+### C2. The hand tab where the Crafting tab was (2026-09-29): BUILT 2026-09-29 (Craft ef40732)
+
+**Built.** Craft's hand tab is at `order = 20`, next to Inventory.
 
 **Wanted.** The shape crafter has left the inventory for its block, so the
 strip a player carries is Inventory and Craft's hand tab. Craft's tab is
@@ -20,7 +22,10 @@ Crafting tab had, next to Inventory, whatever else is loaded.
 **Standing in.** Nothing needed: at 25 it is already second whenever no
 other mod's tab sits between 10 and 25.
 
-### C1. A recipe for the shape crafter (2026-09-29): OPEN
+### C1. A recipe for the shape crafter (2026-09-29): BUILT 2026-09-29 (Craft ef40732)
+
+**Built.** Four planks and four cobbles at the workbench, registered by
+Craft only when this mod exports the block.
 
 **Wanted.** A way to make the shape crafter block
 (`tiamat_default_ui:shape_crafter`, also `exports.shape_crafter`). It is the
@@ -32,5 +37,5 @@ Craft lists the interface in `optional_depends`, so the interface cannot list
 Craft back to call `register`: that is a dependency cycle. The recipe has to
 be registered from Craft's side.
 
-**Standing in.** An operator's give, or a creative world. The block works as
-soon as a player has one.
+**Standing in, without Craft.** An operator's give, or a creative world. The
+block works as soon as a player has one.

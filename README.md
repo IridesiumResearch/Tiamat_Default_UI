@@ -133,9 +133,9 @@ Press **E** (rebindable) to open and close the screen.
   away from the crafter or it is broken.
 - **Crafting by hand** — sticks, tinder, a fire striker, a campfire, the
   workbench — is Tiamat Default Craft's, on its own tab beside Inventory
-  when that mod is loaded. The recipe for a shape crafter is Craft's to give
-  (docs/sibling-asks.md, C1); without Craft, one comes from an operator's
-  give or a creative world.
+  when that mod is loaded. Craft also makes the shape crafter at the
+  workbench, from four planks and four cobbles; without Craft, one comes
+  from an operator's give or a creative world.
 
 ## For other mods
 
