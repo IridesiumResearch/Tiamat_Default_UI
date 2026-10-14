@@ -10,7 +10,7 @@ answer it. Newest first.
 
 ## Tiamat Default Craft
 
-### C2. The hand tab where the Crafting tab was (2026-09-29): BUILT 2026-09-29 (Craft ef40732)
+### C2. The hand tab where the Crafting tab was (2026-09-29): ANSWERED 2026-09-29 (Craft ef40732), re-checked by Craft 2026-10-14 against UI 0.4.0
 
 **Built.** Craft's hand tab is at `order = 20`, next to Inventory.
 
@@ -22,7 +22,7 @@ Crafting tab had, next to Inventory, whatever else is loaded.
 **Standing in.** Nothing needed: at 25 it is already second whenever no
 other mod's tab sits between 10 and 25.
 
-### C1. A recipe for the shape crafter (2026-09-29): BUILT 2026-09-29 (Craft ef40732)
+### C1. A recipe for the shape crafter (2026-09-29): ANSWERED 2026-09-29 (Craft ef40732), re-checked by Craft 2026-10-14 against UI 0.4.0
 
 **Built.** Four planks and four cobbles at the workbench, registered by
 Craft only when this mod exports the block.
